@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { 
   View, 
   Text, 
@@ -40,6 +40,18 @@ export default function RegisterScreen({ navigation }) {
   const [diasSemana, setDiasSemana] = useState('')
   const [tiempoSesion, setTiempoSesion] = useState('')
   const [lugarEntrenamiento, setLugarEntrenamiento] = useState('')
+
+  useEffect(() => {
+    // Verificar si ya hay sesión
+    checkSession()
+  }, [])
+
+  const checkSession = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session) {
+      navigation.replace('Dashboard')
+    }
+  }
 
   const validateStep1 = () => {
     const newErrors = {}

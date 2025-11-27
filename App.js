@@ -1,60 +1,36 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { NavigationContainer } from '@react-navigation/native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { StatusBar } from 'expo-status-bar'
-import { useFonts } from 'expo-font'
-import { Text, View } from 'react-native'
-
+import { Text, View, ActivityIndicator } from 'react-native'
+import { 
+  useFonts,
+  Poppins_400Regular,
+  Poppins_500Medium,
+  Poppins_600SemiBold,
+  Poppins_700Bold,
+} from '@expo-google-fonts/poppins'
+import {
+  Montserrat_400Regular,
+  Montserrat_500Medium,
+  Montserrat_600SemiBold,
+  Montserrat_700Bold,
+} from '@expo-google-fonts/montserrat'
+import { AuthProvider, useAuth } from './components/AuthProvider'
 import LoginScreen from './screens/LoginScreen'
 import RegisterScreen from './screens/RegisterScreen'
 import DashboardScreen from './screens/DashboardScreen'
 import RutinasScreen from './screens/RutinasScreen'
 import AlimentacionScreen from './screens/AlimentacionScreen'
 import PerfilScreen from './screens/PerfilScreen'
+import RutinaDetalleScreen from './screens/RutinaDetalleScreen'
 import { COLORS } from './constants/colors'
 
 const Stack = createNativeStackNavigator()
 const Tab = createBottomTabNavigator()
 
-// -------------------------------------------
-// 1) Cargar las fuentes
-// -------------------------------------------
-
-export default function App() {
-  const [fontsLoaded] = useFonts({
-    Montserrat: require('./assets/fonts/Montserrat.ttf'),
-    Oswald: require('./assets/fonts/Oswald.ttf'),
-    Poppins: require('./assets/fonts/Poppins.ttf'),
-  })
-
-  if (!fontsLoaded) return null // evita parpadeo y errores
-
-  return (
-    <>
-      <StatusBar style="light" />
-      <NavigationContainer>
-        <Stack.Navigator 
-          initialRouteName="Login"
-          screenOptions={{
-            headerShown: false,
-            animation: 'slide_from_right',
-          }}
-        >
-          <Stack.Screen name="Login" component={LoginScreen} />
-          <Stack.Screen name="Register" component={RegisterScreen} />
-          <Stack.Screen name="Dashboard" component={MainTabs} />
-          
-        </Stack.Navigator>
-      </NavigationContainer>
-    </>
-  )
-}
-
-// -------------------------------------------
-// Tabs (menú inferior)
-// -------------------------------------------
-
+// Navegación por tabs (menú inferior)
 function MainTabs() {
   return (
     <Tab.Navigator
@@ -72,7 +48,7 @@ function MainTabs() {
         tabBarInactiveTintColor: COLORS.textMuted,
         tabBarLabelStyle: {
           fontSize: 12,
-          fontFamily: 'Poppins', // ← ya usa tu fuente
+          fontWeight: '600',
         },
       }}
     >
@@ -80,7 +56,7 @@ function MainTabs() {
         name="Inicio" 
         component={DashboardScreen}
         options={{
-          tabBarIcon: ({ color }) => (
+          tabBarIcon: ({ color, size }) => (
             <TabIcon icon="🏠" color={color} />
           ),
         }}
@@ -89,7 +65,7 @@ function MainTabs() {
         name="Rutinas" 
         component={RutinasScreen}
         options={{
-          tabBarIcon: ({ color }) => (
+          tabBarIcon: ({ color, size }) => (
             <TabIcon icon="💪" color={color} />
           ),
         }}
@@ -98,7 +74,7 @@ function MainTabs() {
         name="Alimentación" 
         component={AlimentacionScreen}
         options={{
-          tabBarIcon: ({ color }) => (
+          tabBarIcon: ({ color, size }) => (
             <TabIcon icon="🍎" color={color} />
           ),
         }}
@@ -107,7 +83,7 @@ function MainTabs() {
         name="Perfil" 
         component={PerfilScreen}
         options={{
-          tabBarIcon: ({ color }) => (
+          tabBarIcon: ({ color, size }) => (
             <TabIcon icon="👤" color={color} />
           ),
         }}
@@ -116,18 +92,88 @@ function MainTabs() {
   )
 }
 
-// -------------------------------------------
-// Iconos
-// -------------------------------------------
-
+// Componente para iconos del tab
 function TabIcon({ icon, color }) {
   return (
-    <Text style={{ 
-      fontSize: 24, 
-      opacity: color === COLORS.primary ? 1 : 0.5,
-      fontFamily: 'Oswald' // ← Fuente bonita para los iconos
-    }}>
+    <Text style={{ fontSize: 24, opacity: color === COLORS.primary ? 1 : 0.5 }}>
       {icon}
     </Text>
+  )
+}
+
+// Navegación con verificación de autenticación
+function Navigation() {
+  const { user, loading } = useAuth()
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background }}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={{ color: COLORS.text, marginTop: 16, fontSize: 16 }}>Cargando...</Text>
+      </View>
+    )
+  }
+
+  return (
+    <Stack.Navigator 
+      initialRouteName={user ? "Dashboard" : "Login"}
+      screenOptions={{
+        headerShown: false,
+        animation: 'slide_from_right',
+      }}
+    >
+      {!user ? (
+        // Pantallas de autenticación
+        <>
+          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="Register" component={RegisterScreen} />
+        </>
+      ) : (
+        // Pantallas autenticadas
+        <>
+          <Stack.Screen name="Dashboard" component={MainTabs} />
+          <Stack.Screen 
+            name="RutinaDetalle" 
+            component={RutinaDetalleScreen}
+            options={{
+              presentation: 'modal',
+              animation: 'slide_from_bottom',
+            }}
+          />
+        </>
+      )}
+    </Stack.Navigator>
+  )
+}
+
+// App principal
+export default function App() {
+  let [fontsLoaded] = useFonts({
+    Poppins_400Regular,
+    Poppins_500Medium,
+    Poppins_600SemiBold,
+    Poppins_700Bold,
+    Montserrat_400Regular,
+    Montserrat_500Medium,
+    Montserrat_600SemiBold,
+    Montserrat_700Bold,
+  })
+
+  if (!fontsLoaded) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background }}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={{ color: COLORS.text, marginTop: 16 }}>Cargando fuentes...</Text>
+      </View>
+    )
+  }
+
+  return (
+    <AuthProvider>
+      <StatusBar style="light" />
+      <NavigationContainer>
+        <Navigation />
+      </NavigationContainer>
+    </AuthProvider>
   )
 }

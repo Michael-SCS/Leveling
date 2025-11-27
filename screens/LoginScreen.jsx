@@ -1,12 +1,12 @@
-import React, { useState } from 'react'
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  KeyboardAvoidingView,
+import React, { useState, useEffect } from 'react'
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  ScrollView, 
+  KeyboardAvoidingView, 
   Platform,
-  Alert
+  Alert 
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { supabase } from '../lib/supabase'
@@ -20,21 +20,33 @@ export default function LoginScreen({ navigation }) {
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState({})
 
+  useEffect(() => {
+    // Verificar si ya hay sesión
+    checkSession()
+  }, [])
+
+  const checkSession = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session) {
+      navigation.replace('Dashboard')
+    }
+  }
+
   const validateForm = () => {
     const newErrors = {}
-
+    
     if (!email) {
       newErrors.email = 'El email es requerido'
     } else if (!/\S+@\S+\.\S+/.test(email)) {
       newErrors.email = 'Email inválido'
     }
-
+    
     if (!password) {
       newErrors.password = 'La contraseña es requerida'
     } else if (password.length < 6) {
       newErrors.password = 'Mínimo 6 caracteres'
     }
-
+    
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -44,26 +56,19 @@ export default function LoginScreen({ navigation }) {
 
     setLoading(true)
     try {
-      console.log('Intentando login con:', email)
-
       const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password: password,
       })
 
-      console.log('Login data:', data)
-      console.log('Login error:', error)
-
       if (error) throw error
 
-      console.log('Login exitoso, navegando a Dashboard...')
-
-      // Navegar directamente al dashboard
-      navigation.replace('Dashboard')
-
+      // Navegar al dashboard
+      // navigation.replace('Dashboard')
+      Alert.alert('¡Éxito!', 'Has iniciado sesión correctamente')
+      
     } catch (error) {
-      console.log('Error en login:', error)
-      Alert.alert('Error', error.message || 'No se pudo iniciar sesión')
+      Alert.alert('Error', error.message)
     } finally {
       setLoading(false)
     }
@@ -74,11 +79,11 @@ export default function LoginScreen({ navigation }) {
       colors={[COLORS.background, COLORS.surface, COLORS.background]}
       style={styles.container}
     >
-      <KeyboardAvoidingView
+      <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        <ScrollView
+        <ScrollView 
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
