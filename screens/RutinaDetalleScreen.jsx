@@ -7,7 +7,8 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
-  Alert
+  Alert,
+  Modal
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { supabase } from '../lib/supabase'
@@ -18,12 +19,46 @@ export default function RutinaDetalleScreen({ route, navigation }) {
   const [loading, setLoading] = useState(true)
   const [rutina, setRutina] = useState(null)
   const [ejercicios, setEjercicios] = useState([])
-  const [diaSeleccionado, setDiaSeleccionado] = useState(1)
-  const [ejercicioExpandido, setEjercicioExpandido] = useState(null)
+  const [ejerciciosCompletados, setEjerciciosCompletados] = useState(new Set())
+  const [entrenandoActivo, setEntrenandoActivo] = useState(false)
+  const [tiempoInicio, setTiempoInicio] = useState(null)
+  const [tiempoTranscurrido, setTiempoTranscurrido] = useState(0)
+  const [ejercicioActual, setEjercicioActual] = useState(null)
+  const [serieActual, setSerieActual] = useState(1)
+  const [timerDescanso, setTimerDescanso] = useState(0)
+  const [mostrarTimer, setMostrarTimer] = useState(false)
 
   useEffect(() => {
     loadRutinaDetalle()
   }, [])
+
+  useEffect(() => {
+    let interval
+    if (entrenandoActivo && tiempoInicio) {
+      interval = setInterval(() => {
+        const ahora = Date.now()
+        const transcurrido = Math.floor((ahora - tiempoInicio) / 1000)
+        setTiempoTranscurrido(transcurrido)
+      }, 1000)
+    }
+    return () => clearInterval(interval)
+  }, [entrenandoActivo, tiempoInicio])
+
+  useEffect(() => {
+    let interval
+    if (timerDescanso > 0) {
+      interval = setInterval(() => {
+        setTimerDescanso(prev => {
+          if (prev <= 1) {
+            setMostrarTimer(false)
+            return 0
+          }
+          return prev - 1
+        })
+      }, 1000)
+    }
+    return () => clearInterval(interval)
+  }, [timerDescanso])
 
   const loadRutinaDetalle = async () => {
     try {
@@ -36,6 +71,7 @@ export default function RutinaDetalleScreen({ route, navigation }) {
       if (rutinaError) throw rutinaError
       setRutina(rutinaData)
 
+      // Cargar TODOS los ejercicios de la rutina (sin filtrar por día)
       const { data: ejerciciosData, error: ejerciciosError } = await supabase
         .from('rutina_predefinida_ejercicios')
         .select(`
@@ -56,22 +92,115 @@ export default function RutinaDetalleScreen({ route, navigation }) {
     }
   }
 
-  const handleIniciarRutina = () => {
-    Alert.alert(
-      '¡Vamos! 💪',
-      '¿Listo para empezar tu entrenamiento?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Iniciar',
-          onPress: () => {
-            // Aquí iría la lógica para iniciar el entrenamiento
-            console.log('Iniciar rutina:', rutina.nombre, 'Día:', diaSeleccionado)
-            Alert.alert('¡Éxito!', 'Entrenamiento iniciado. ¡Dale con todo!')
-          }
-        }
-      ]
-    )
+  const handleIniciarEntrenamiento = () => {
+    setEntrenandoActivo(true)
+    setTiempoInicio(Date.now())
+    setEjerciciosCompletados(new Set())
+    Alert.alert('¡Vamos! 💪', 'Entrenamiento iniciado. ¡Dale con todo!')
+  }
+
+  const toggleEjercicioCompletado = (ejercicioId) => {
+    const nuevosCompletados = new Set(ejerciciosCompletados)
+    if (nuevosCompletados.has(ejercicioId)) {
+      nuevosCompletados.delete(ejercicioId)
+    } else {
+      nuevosCompletados.add(ejercicioId)
+    }
+    setEjerciciosCompletados(nuevosCompletados)
+  }
+
+  const iniciarDescanso = (ejercicio, segundos) => {
+    setEjercicioActual(ejercicio)
+    setTimerDescanso(segundos)
+    setMostrarTimer(true)
+  }
+
+  const calcularXPGanada = () => {
+    const porcentajeCompletado = (ejerciciosCompletados.size / ejercicios.length) * 100
+    let xpBase = 50
+
+    // Bonus por completar todo
+    if (porcentajeCompletado === 100) xpBase += 50
+
+    // Bonus por tiempo (menos de 60 min)
+    if (tiempoTranscurrido < 3600) xpBase += 20
+
+    return Math.floor(xpBase * (porcentajeCompletado / 100))
+  }
+
+  const calcularCaloriasQuemadas = () => {
+    // Fórmula aproximada: 5 calorías por minuto de entrenamiento intenso
+    const minutos = Math.floor(tiempoTranscurrido / 60)
+    return minutos * 5
+  }
+
+  const handleFinalizarEntrenamiento = async () => {
+    if (ejerciciosCompletados.size === 0) {
+      Alert.alert('Espera', 'Marca al menos un ejercicio como completado')
+      return
+    }
+
+    const xpGanada = calcularXPGanada()
+    const calorias = calcularCaloriasQuemadas()
+    const duracionMinutos = Math.floor(tiempoTranscurrido / 60)
+
+    try {
+      // Obtener user_id
+      const { data: { user } } = await supabase.auth.getUser()
+
+      // Guardar entrenamiento
+      const { data: entrenamiento, error: errorEntrenamiento } = await supabase
+        .from('entrenamientos_completados')
+        .insert([{
+          user_id: user.id,
+          rutina_id: rutinaId,
+          duracion_minutos: duracionMinutos,
+          calorias_quemadas: calorias,
+          xp_ganada: xpGanada,
+          ejercicios_completados: Array.from(ejerciciosCompletados),
+        }])
+        .select()
+        .single()
+
+      if (errorEntrenamiento) throw errorEntrenamiento
+
+      // Agregar XP al usuario
+      const { data: nivelData, error: errorXP } = await supabase
+        .rpc('agregar_xp', {
+          usuario_id: user.id,
+          xp_ganada: xpGanada
+        })
+
+      if (errorXP) console.log('Error agregando XP:', errorXP)
+
+      // Mostrar resumen
+      const subioNivel = nivelData?.[0]?.subio_nivel || false
+      const nuevoNivel = nivelData?.[0]?.nuevo_nivel || 0
+
+      let mensaje = `🔥 ¡Entrenamiento completado!\n\n`
+      mensaje += `⏱️ Duración: ${duracionMinutos} min\n`
+      mensaje += `💪 Ejercicios: ${ejerciciosCompletados.size}/${ejercicios.length}\n`
+      mensaje += `🔥 Calorías: ~${calorias} kcal\n`
+      mensaje += `⭐ XP ganada: +${xpGanada}\n`
+
+      if (subioNivel) {
+        mensaje += `\n🎉 ¡SUBISTE AL NIVEL ${nuevoNivel}!`
+      }
+
+      Alert.alert('¡Felicidades!', mensaje, [
+        { text: 'Genial', onPress: () => navigation.goBack() }
+      ])
+
+    } catch (error) {
+      console.log('Error guardando entrenamiento:', error)
+      Alert.alert('Error', 'No se pudo guardar el entrenamiento')
+    }
+  }
+
+  const formatearTiempo = (segundos) => {
+    const mins = Math.floor(segundos / 60)
+    const secs = segundos % 60
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
   }
 
   if (loading) {
@@ -82,110 +211,82 @@ export default function RutinaDetalleScreen({ route, navigation }) {
     )
   }
 
-  const dias = [...new Set(ejercicios.map(e => e.dia_semana))].sort((a, b) => a - b)
-  const ejerciciosDia = ejercicios.filter(e => e.dia_semana === diaSeleccionado)
+  const progresoEjercicios = ejercicios.length > 0
+    ? (ejerciciosCompletados.size / ejercicios.length) * 100
+    : 0
 
   return (
     <View style={styles.container}>
-      {/* Header con imagen */}
-      <View style={styles.headerContainer}>
-        {rutina.imagen_url && (
-          <Image 
-            source={{ uri: rutina.imagen_url }} 
-            style={styles.headerImage}
-            resizeMode="cover"
-          />
-        )}
-        <LinearGradient
-          colors={['rgba(0,0,0,0.4)', 'rgba(0,0,0,0.9)']}
-          style={styles.headerGradient}
-        >
-          <TouchableOpacity 
+      {/* Header */}
+      <LinearGradient
+        colors={[COLORS.background, COLORS.surface]}
+        style={styles.header}
+      >
+        <View style={styles.headerTop}>
+          <TouchableOpacity
             style={styles.backButton}
-            onPress={() => navigation.goBack()}
+            onPress={() => {
+              if (entrenandoActivo) {
+                Alert.alert(
+                  'Entrenamiento en curso',
+                  '¿Quieres salir sin finalizar?',
+                  [
+                    { text: 'Cancelar', style: 'cancel' },
+                    { text: 'Salir', onPress: () => navigation.goBack(), style: 'destructive' }
+                  ]
+                )
+              } else {
+                navigation.goBack()
+              }
+            }}
           >
             <Text style={styles.backButtonText}>←</Text>
           </TouchableOpacity>
 
-          <View style={styles.headerInfo}>
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{rutina.nivel}</Text>
+          {entrenandoActivo && (
+            <View style={styles.timerContainer}>
+              <Text style={styles.timerIcon}>⏱️</Text>
+              <Text style={styles.timerText}>{formatearTiempo(tiempoTranscurrido)}</Text>
             </View>
-            <Text style={styles.headerTitle}>{rutina.nombre}</Text>
-            
-            <View style={styles.statsRow}>
-              <View style={styles.statBox}>
-                <Text style={styles.statIcon}>📅</Text>
-                <Text style={styles.statValue}>{rutina.dias_semana}</Text>
-                <Text style={styles.statLabel}>días</Text>
-              </View>
-              <View style={styles.statBox}>
-                <Text style={styles.statIcon}>⏱️</Text>
-                <Text style={styles.statValue}>{rutina.duracion_minutos}</Text>
-                <Text style={styles.statLabel}>min</Text>
-              </View>
-              <View style={styles.statBox}>
-                <Text style={styles.statIcon}>📍</Text>
-                <Text style={styles.statValue}>{rutina.lugar}</Text>
-                <Text style={styles.statLabel}>lugar</Text>
-              </View>
+          )}
+        </View>
+
+        <Text style={styles.headerTitle}>{rutina?.nombre}</Text>
+
+        {entrenandoActivo && (
+          <View style={styles.progresoContainer}>
+            <View style={styles.progresoBar}>
+              <View style={[styles.progresoFill, { width: `${progresoEjercicios}%` }]} />
             </View>
+            <Text style={styles.progresoText}>
+              {ejerciciosCompletados.size}/{ejercicios.length} ejercicios
+            </Text>
           </View>
-        </LinearGradient>
-      </View>
+        )}
+      </LinearGradient>
 
-      {/* Selector de días mejorado */}
-      <View style={styles.diasContainer}>
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.diasScroll}
-        >
-          {dias.map((dia) => (
-            <TouchableOpacity
-              key={dia}
-              style={[
-                styles.diaChip,
-                diaSeleccionado === dia && styles.diaChipActive
-              ]}
-              onPress={() => setDiaSeleccionado(dia)}
-            >
-              <Text style={[
-                styles.diaChipText,
-                diaSeleccionado === dia && styles.diaChipTextActive
-              ]}>
-                Día {dia}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-
-      {/* Lista de ejercicios rediseñada */}
-      <ScrollView 
+      {/* Lista de ejercicios */}
+      <ScrollView
         style={styles.ejerciciosScroll}
         contentContainerStyle={styles.ejerciciosContent}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.sectionTitle}>
-          {ejerciciosDia.length} ejercicios
-        </Text>
+        {ejercicios.map((item, index) => {
+          const completado = ejerciciosCompletados.has(item.id)
 
-        {ejerciciosDia.map((item, index) => {
-          const isExpanded = ejercicioExpandido === item.id
-          
           return (
-            <View key={item.id} style={styles.ejercicioCard}>
-              {/* Header del ejercicio */}
-              <TouchableOpacity 
-                style={styles.ejercicioHeader}
-                onPress={() => setEjercicioExpandido(isExpanded ? null : item.id)}
-                activeOpacity={0.7}
-              >
+            <View
+              key={item.id}
+              style={[
+                styles.ejercicioCard,
+                completado && styles.ejercicioCardCompletado
+              ]}
+            >
+              <View style={styles.ejercicioHeader}>
                 <View style={styles.ejercicioNumero}>
                   <Text style={styles.ejercicioNumeroText}>{index + 1}</Text>
                 </View>
-                
+
                 <View style={styles.ejercicioInfo}>
                   <Text style={styles.ejercicioNombre}>
                     {item.ejercicios.nombre}
@@ -193,84 +294,100 @@ export default function RutinaDetalleScreen({ route, navigation }) {
                   <Text style={styles.ejercicioCategoria}>
                     {item.ejercicios.categoria}
                   </Text>
+                  <Text style={styles.ejercicioSeries}>
+                    {item.series} series × {item.repeticiones} reps
+                  </Text>
                 </View>
 
-                <Text style={styles.expandIcon}>
-                  {isExpanded ? '▼' : '▶'}
-                </Text>
-              </TouchableOpacity>
-
-              {/* Stats siempre visibles */}
-              <View style={styles.statsContainer}>
-                <View style={styles.statItem}>
-                  <Text style={styles.statItemValue}>{item.series}</Text>
-                  <Text style={styles.statItemLabel}>series</Text>
-                </View>
-                <View style={styles.statDivider} />
-                <View style={styles.statItem}>
-                  <Text style={styles.statItemValue}>{item.repeticiones}</Text>
-                  <Text style={styles.statItemLabel}>reps</Text>
-                </View>
-                <View style={styles.statDivider} />
-                <View style={styles.statItem}>
-                  <Text style={styles.statItemValue}>{item.descanso_segundos}s</Text>
-                  <Text style={styles.statItemLabel}>descanso</Text>
-                </View>
+                {entrenandoActivo && (
+                  <TouchableOpacity
+                    style={[
+                      styles.checkButton,
+                      completado && styles.checkButtonActive
+                    ]}
+                    onPress={() => toggleEjercicioCompletado(item.id)}
+                  >
+                    <Text style={styles.checkIcon}>
+                      {completado ? '✓' : '○'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
 
-              {/* Contenido expandible */}
-              {isExpanded && (
-                <View style={styles.ejercicioExpandido}>
-                  {item.ejercicios.instrucciones && (
-                    <View style={styles.instruccionesBox}>
-                      <Text style={styles.instruccionesTitle}>
-                        📋 Cómo hacerlo
-                      </Text>
-                      <Text style={styles.instruccionesText}>
-                        {item.ejercicios.instrucciones}
-                      </Text>
-                    </View>
-                  )}
-
-                  {item.notas && (
-                    <View style={styles.notasBox}>
-                      <Text style={styles.notasIcon}>💡</Text>
-                      <Text style={styles.notasText}>{item.notas}</Text>
-                    </View>
-                  )}
-
-                  {item.ejercicios.musculos_trabajados && (
-                    <View style={styles.musculosBox}>
-                      <Text style={styles.musculosTitle}>
-                        💪 Músculos trabajados
-                      </Text>
-                      <View style={styles.musculosTags}>
-                        {item.ejercicios.musculos_trabajados.map((musculo, i) => (
-                          <View key={i} style={styles.musculoTag}>
-                            <Text style={styles.musculoTagText}>{musculo}</Text>
-                          </View>
-                        ))}
-                      </View>
-                    </View>
-                  )}
+              {/* Instrucciones */}
+              {item.ejercicios.instrucciones && (
+                <View style={styles.instruccionesBox}>
+                  <Text style={styles.instruccionesTitle}>📋 Cómo hacerlo</Text>
+                  <Text style={styles.instruccionesText}>
+                    {item.ejercicios.instrucciones}
+                  </Text>
                 </View>
+              )}
+
+              {/* Botón de descanso */}
+              {entrenandoActivo && !completado && (
+                <TouchableOpacity
+                  style={styles.descansoButton}
+                  onPress={() => iniciarDescanso(item, item.descanso_segundos)}
+                >
+                  <Text style={styles.descansoButtonText}>
+                    ⏱️ Descanso ({item.descanso_segundos}s)
+                  </Text>
+                </TouchableOpacity>
               )}
             </View>
           )
         })}
 
-        {/* Botón de iniciar rutina */}
-        <TouchableOpacity 
-          style={styles.iniciarButton}
-          onPress={handleIniciarRutina}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.iniciarButtonText}>Iniciar Entrenamiento</Text>
-          <Text style={styles.iniciarButtonIcon}>🔥</Text>
-        </TouchableOpacity>
+        {/* Botón de acción */}
+        {!entrenandoActivo ? (
+          <TouchableOpacity
+            style={styles.iniciarButton}
+            onPress={handleIniciarEntrenamiento}
+          >
+            <Text style={styles.iniciarButtonText}>Iniciar Entrenamiento</Text>
+            <Text style={styles.iniciarButtonIcon}>🔥</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={[
+              styles.iniciarButton,
+              styles.finalizarButton,
+              ejerciciosCompletados.size === 0 && styles.buttonDisabled
+            ]}
+            onPress={handleFinalizarEntrenamiento}
+            disabled={ejerciciosCompletados.size === 0}
+          >
+            <Text style={styles.iniciarButtonText}>Finalizar Entrenamiento</Text>
+            <Text style={styles.iniciarButtonIcon}>✓</Text>
+          </TouchableOpacity>
+        )}
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
+
+      {/* Timer Modal */}
+      <Modal
+        visible={mostrarTimer}
+        transparent={true}
+        animationType="fade"
+      >
+        <View style={styles.timerModalOverlay}>
+          <View style={styles.timerModal}>
+            <Text style={styles.timerModalTitle}>Descanso</Text>
+            <Text style={styles.timerModalTiempo}>{formatearTiempo(timerDescanso)}</Text>
+            <Text style={styles.timerModalEjercicio}>
+              {ejercicioActual?.ejercicios?.nombre}
+            </Text>
+            <TouchableOpacity
+              style={styles.timerModalButton}
+              onPress={() => setMostrarTimer(false)}
+            >
+              <Text style={styles.timerModalButtonText}>Saltar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   )
 }
@@ -286,29 +403,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: COLORS.background,
   },
-  
-  // Header
-  headerContainer: {
-    height: 260,
-  },
-  headerImage: {
-    width: '100%',
-    height: '100%',
-    position: 'absolute',
-  },
-  headerGradient: {
-    flex: 1,
-    justifyContent: 'space-between',
-    paddingTop: 50,
+  header: {
+    paddingTop: 60,
+    paddingHorizontal: 20,
     paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
   },
   backButton: {
-    alignSelf: 'flex-start',
-    marginLeft: 20,
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: COLORS.surface,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -317,115 +429,71 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '600',
   },
-  headerInfo: {
-    paddingHorizontal: 20,
-  },
-  badge: {
-    alignSelf: 'flex-start',
+  timerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: COLORS.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    marginBottom: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
   },
-  badgeText: {
+  timerIcon: {
+    fontSize: 16,
+    marginRight: 8,
+  },
+  timerText: {
     color: COLORS.white,
-    fontSize: 11,
-    fontWeight: '600',
-    textTransform: 'uppercase',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: COLORS.white,
+    color: COLORS.text,
     marginBottom: 16,
   },
-  statsRow: {
-    flexDirection: 'row',
-    gap: 12,
+  progresoContainer: {
+    marginTop: 8,
   },
-  statBox: {
-    flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 12,
-    padding: 12,
-    alignItems: 'center',
-  },
-  statIcon: {
-    fontSize: 20,
-    marginBottom: 4,
-  },
-  statValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: COLORS.white,
-  },
-  statLabel: {
-    fontSize: 10,
-    fontWeight: '500',
-    color: COLORS.white,
-    opacity: 0.8,
-  },
-
-  // Selector de días
-  diasContainer: {
+  progresoBar: {
+    height: 8,
     backgroundColor: COLORS.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 8,
   },
-  diasScroll: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    gap: 8,
+  progresoFill: {
+    height: '100%',
+    backgroundColor: COLORS.success,
+    borderRadius: 4,
   },
-  diaChip: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: COLORS.card,
-    marginRight: 8,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  diaChipActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
-  },
-  diaChipText: {
-    fontSize: 13,
+  progresoText: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
     fontWeight: '600',
-    color: COLORS.textMuted,
   },
-  diaChipTextActive: {
-    color: COLORS.white,
-  },
-
-  // Ejercicios
   ejerciciosScroll: {
     flex: 1,
   },
   ejerciciosContent: {
     padding: 20,
   },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-    marginBottom: 16,
-    textTransform: 'uppercase',
-  },
   ejercicioCard: {
     backgroundColor: COLORS.card,
     borderRadius: 16,
-    marginBottom: 12,
-    overflow: 'hidden',
-    borderWidth: 1,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 2,
     borderColor: COLORS.border,
+  },
+  ejercicioCardCompletado: {
+    borderColor: COLORS.success,
+    backgroundColor: COLORS.success + '15',
   },
   ejercicioHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    marginBottom: 12,
   },
   ejercicioNumero: {
     width: 36,
@@ -446,114 +514,67 @@ const styles = StyleSheet.create({
   },
   ejercicioNombre: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: 'bold',
     color: COLORS.text,
-    marginBottom: 2,
+    marginBottom: 4,
   },
   ejercicioCategoria: {
     fontSize: 12,
-    fontWeight: '500',
     color: COLORS.textSecondary,
+    marginBottom: 4,
   },
-  expandIcon: {
-    fontSize: 12,
+  ejercicioSeries: {
+    fontSize: 14,
+    fontWeight: '600',
     color: COLORS.primary,
-    marginLeft: 8,
   },
-  statsContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    gap: 12,
-  },
-  statItem: {
-    flex: 1,
+  checkButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 3,
+    borderColor: COLORS.border,
+    justifyContent: 'center',
     alignItems: 'center',
+    marginLeft: 12,
   },
-  statItemValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: COLORS.primary,
+  checkButtonActive: {
+    borderColor: COLORS.success,
+    backgroundColor: COLORS.success,
   },
-  statItemLabel: {
-    fontSize: 10,
-    fontWeight: '500',
-    color: COLORS.textSecondary,
-    marginTop: 2,
-  },
-  statDivider: {
-    width: 1,
-    backgroundColor: COLORS.border,
-  },
-  ejercicioExpandido: {
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    padding: 16,
-    gap: 12,
+  checkIcon: {
+    fontSize: 24,
+    color: COLORS.white,
   },
   instruccionesBox: {
     backgroundColor: COLORS.surface,
     padding: 12,
     borderRadius: 12,
+    marginBottom: 12,
   },
   instruccionesTitle: {
     fontSize: 12,
     fontWeight: '600',
     color: COLORS.text,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   instruccionesText: {
     fontSize: 13,
-    fontWeight: '400',
     color: COLORS.textSecondary,
-    lineHeight: 20,
-  },
-  notasBox: {
-    backgroundColor: COLORS.primary + '15',
-    padding: 12,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    borderLeftWidth: 3,
-    borderLeftColor: COLORS.primary,
-  },
-  notasIcon: {
-    fontSize: 16,
-    marginRight: 8,
-  },
-  notasText: {
-    flex: 1,
-    fontSize: 12,
-    color: COLORS.text,
     lineHeight: 18,
   },
-  musculosBox: {
-    backgroundColor: COLORS.surface,
-    padding: 12,
-    borderRadius: 12,
-  },
-  musculosTitle: {
-    fontSize: 12,
-    color: COLORS.text,
-    marginBottom: 8,
-  },
-  musculosTags: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  musculoTag: {
+  descansoButton: {
     backgroundColor: COLORS.primary + '20',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
+    borderRadius: 8,
+    padding: 10,
+    alignItems: 'center',
     borderWidth: 1,
-    borderColor: COLORS.primary + '40',
+    borderColor: COLORS.primary,
   },
-  musculoTagText: {
-    fontSize: 11,
-    fontWeight: '600',
+  descansoButtonText: {
     color: COLORS.primary,
+    fontSize: 13,
+    fontWeight: '600',
   },
   iniciarButton: {
     backgroundColor: COLORS.primary,
@@ -562,12 +583,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 20,
+    marginTop: 8,
     shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
+  },
+  finalizarButton: {
+    backgroundColor: COLORS.success,
+  },
+  buttonDisabled: {
+    opacity: 0.5,
   },
   iniciarButtonText: {
     fontSize: 16,
@@ -580,5 +607,47 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: {
     height: 20,
+  },
+  timerModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  timerModal: {
+    backgroundColor: COLORS.card,
+    borderRadius: 24,
+    padding: 32,
+    alignItems: 'center',
+    width: '80%',
+  },
+  timerModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: COLORS.textSecondary,
+    marginBottom: 16,
+  },
+  timerModalTiempo: {
+    fontSize: 64,
+    fontWeight: 'bold',
+    color: COLORS.primary,
+    marginBottom: 16,
+  },
+  timerModalEjercicio: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  timerModalButton: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+  },
+  timerModalButtonText: {
+    color: COLORS.white,
+    fontSize: 16,
+    fontWeight: '600',
   },
 })

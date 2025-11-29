@@ -117,6 +117,26 @@ export default function PerfilScreen({ navigation }) {
     )
   }
 
+  const actualizarNivel = async (nuevoNivel) => {
+    try {
+      const { error } = await supabase
+        .from('usuarios_info')
+        .update({
+          nivel: nuevoNivel,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', user.id)
+
+      if (error) throw error
+
+      Alert.alert('✅ Actualizado', `Tu nivel ahora es: ${nuevoNivel}`)
+      loadUserData() // Recargar datos
+    } catch (error) {
+      console.log('Error actualizando nivel:', error)
+      Alert.alert('Error', 'No se pudo actualizar el nivel')
+    }
+  }
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -130,7 +150,7 @@ export default function PerfilScreen({ navigation }) {
       colors={[COLORS.background, COLORS.surface]}
       style={styles.container}
     >
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
@@ -150,7 +170,7 @@ export default function PerfilScreen({ navigation }) {
         {/* Información Personal */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Información Personal</Text>
-          
+
           <View style={styles.infoCard}>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Edad</Text>
@@ -174,7 +194,7 @@ export default function PerfilScreen({ navigation }) {
         {/* Objetivos */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Objetivos y Preferencias</Text>
-          
+
           <View style={styles.infoCard}>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Objetivo</Text>
@@ -207,7 +227,7 @@ export default function PerfilScreen({ navigation }) {
 
           {/* Botón de subir de nivel */}
           {puedeSubir && userInfo?.nivel !== 'Avanzado' && (
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.subirNivelButton}
               onPress={handleSubirNivel}
               disabled={checkingNivel}
@@ -225,9 +245,33 @@ export default function PerfilScreen({ navigation }) {
 
         {/* Opciones */}
         <View style={styles.section}>
-          <TouchableOpacity style={styles.optionButton}>
+          <TouchableOpacity
+            style={styles.optionButton}
+            onPress={() => {
+              Alert.alert(
+                'Cambiar Nivel',
+                'Selecciona tu nuevo nivel de experiencia',
+                [
+                  { text: 'Cancelar', style: 'cancel' },
+                  {
+                    text: 'Principiante',
+                    onPress: () => actualizarNivel('Principiante')
+                  },
+                  {
+                    text: 'Intermedio',
+                    onPress: () => actualizarNivel('Intermedio')
+                  },
+                  {
+                    text: 'Avanzado',
+                    onPress: () => actualizarNivel('Avanzado')
+                  }
+                ],
+                { cancelable: true }
+              )
+            }}
+          >
             <Text style={styles.optionIcon}>✏️</Text>
-            <Text style={styles.optionText}>Editar Perfil</Text>
+            <Text style={styles.optionText}>Editar Nivel</Text>
             <Text style={styles.optionArrow}>→</Text>
           </TouchableOpacity>
 

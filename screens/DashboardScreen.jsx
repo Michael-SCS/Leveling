@@ -58,12 +58,28 @@ export default function DashboardScreen({ navigation }) {
   const loadRutinasPersonalizadas = async (objetivo, nivel, lugar) => {
     setLoadingRutinas(true)
     try {
+      // Convertir nivel texto a rango numérico
+      let nivelMin = 1, nivelMax = 5
+
+      if (nivel === 'Principiante') {
+        nivelMin = 1
+        nivelMax = 5
+      } else if (nivel === 'Intermedio') {
+        nivelMin = 6
+        nivelMax = 15
+      } else if (nivel === 'Avanzado') {
+        nivelMin = 16
+        nivelMax = 100
+      }
+
+      // Solo buscar rutinas del nivel actual del usuario
       const { data, error } = await supabase
         .from('rutinas_predefinidas')
         .select('*')
         .eq('objetivo', objetivo)
+        .eq('nivel', nivel) // Solo su nivel exacto
         .in('lugar', [lugar, 'Ambos'])
-        .order('nivel', { ascending: true })
+        .order('created_at', { ascending: false })
         .limit(5)
 
       if (error) throw error
@@ -90,14 +106,14 @@ export default function DashboardScreen({ navigation }) {
   }
 
   const renderRutinaItem = ({ item }) => (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={styles.rutinaCard}
       onPress={() => handleRutinaPress(item)}
       activeOpacity={0.9}
     >
       {item.imagen_url && (
-        <Image 
-          source={{ uri: item.imagen_url }} 
+        <Image
+          source={{ uri: item.imagen_url }}
           style={styles.rutinaImage}
           resizeMode="cover"
         />
@@ -133,13 +149,14 @@ export default function DashboardScreen({ navigation }) {
       colors={[COLORS.background, COLORS.surface]}
       style={styles.container}
     >
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
         <View style={styles.header}>
           <View>
+            <Text style={styles.greeting}>Hola, 👋</Text>
             <Text style={styles.name}>{userInfo?.nombre_completo || 'Usuario'}</Text>
           </View>
         </View>
@@ -190,18 +207,19 @@ export default function DashboardScreen({ navigation }) {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <View>
-              <Text style={styles.sectionTitle}>Rutinas para ti</Text>
+              <Text style={styles.sectionTitle}>Rutinas Para Ti</Text>
               <Text style={styles.sectionSubtitle}>
-                Basadas en tu objetivo y nivel actual
+                Basadas en tu objetivo
               </Text>
             </View>
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => navigation.navigate('Rutinas')}
               style={styles.verTodoButton}
             >
+              <Text style={styles.verTodoText}>Ver todo</Text>
             </TouchableOpacity>
           </View>
-          
+
           {loadingRutinas ? (
             <ActivityIndicator size="small" color={COLORS.primary} style={{ marginTop: 20 }} />
           ) : rutinas.length > 0 ? (
@@ -259,12 +277,10 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
   },
   name: {
-    fontSize: 20,
+    fontSize: 28,
     fontWeight: 'bold',
-    fontFamily: 'Poppins',
     color: COLORS.text,
-    marginTop: 10,
-    textAlign: 'center',
+    marginTop: 4,
   },
   progressCard: {
     backgroundColor: COLORS.card,
@@ -279,7 +295,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.text,
     marginBottom: 16,
-    fontFamily: 'Poppins',
   },
   progressRow: {
     flexDirection: 'row',
@@ -360,6 +375,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   sectionHeader: {
+    flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
@@ -368,15 +384,15 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: COLORS.text,
-    fontFamily: 'Poppins',
-    textAlign: 'center'
   },
   sectionSubtitle: {
     fontSize: 14,
     color: COLORS.textSecondary,
     marginTop: 2,
-    fontFamily: 'Montserrat',
-    textAlign: 'center'
+  },
+  verTodoButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
   },
   verTodoText: {
     fontSize: 14,
@@ -385,7 +401,6 @@ const styles = StyleSheet.create({
   },
   rutinasCarousel: {
     paddingRight: 24,
-    
   },
   rutinaCard: {
     width: 280,
@@ -396,7 +411,6 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.card,
     borderWidth: 1,
     borderColor: COLORS.border,
-    
   },
   rutinaImage: {
     width: '100%',
@@ -423,18 +437,16 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   rutinaNombre: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     color: COLORS.white,
     marginBottom: 8,
-    fontFamily: 'Poppins',
   },
   rutinaDescripcion: {
     fontSize: 14,
     color: COLORS.white,
     opacity: 0.9,
     marginBottom: 12,
-    fontFamily: 'Montserrat',
   },
   rutinaInfo: {
     flexDirection: 'row',

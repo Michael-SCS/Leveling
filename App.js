@@ -4,7 +4,8 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { StatusBar } from 'expo-status-bar'
 import { Text, View, ActivityIndicator } from 'react-native'
-import { 
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons'
+import {
   useFonts,
   Poppins_400Regular,
   Poppins_500Medium,
@@ -25,6 +26,7 @@ import RutinasScreen from './screens/RutinasScreen'
 import AlimentacionScreen from './screens/AlimentacionScreen'
 import PerfilScreen from './screens/PerfilScreen'
 import RutinaDetalleScreen from './screens/RutinaDetalleScreen'
+import HistorialScreen from './screens/HistorialScreen'
 import { COLORS } from './constants/colors'
 
 const Stack = createNativeStackNavigator()
@@ -40,64 +42,85 @@ function MainTabs() {
           backgroundColor: COLORS.surface,
           borderTopColor: COLORS.border,
           borderTopWidth: 1,
-          height: 85,
-          paddingBottom: 25,
+          height: 70,
+          paddingBottom: 10,
           paddingTop: 10,
         },
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.textMuted,
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: '600',
+          marginTop: 4,
         },
       }}
     >
-      <Tab.Screen 
-        name="Inicio" 
+      <Tab.Screen
+        name="Inicio"
         component={DashboardScreen}
         options={{
-          tabBarIcon: ({ color, size }) => (
-            <TabIcon icon="🏠" color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "home" : "home-outline"}
+              size={24}
+              color={color}
+            />
           ),
         }}
       />
-      <Tab.Screen 
-        name="Rutinas" 
+      <Tab.Screen
+        name="Rutinas"
         component={RutinasScreen}
         options={{
-          tabBarIcon: ({ color, size }) => (
-            <TabIcon icon="💪" color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <MaterialCommunityIcons
+              name={focused ? "dumbbell" : "dumbbell"}
+              size={26}
+              color={color}
+            />
           ),
         }}
       />
-      <Tab.Screen 
-        name="Alimentación" 
+      <Tab.Screen
+        name="Historial"
+        component={HistorialScreen}
+        options={{
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "stats-chart" : "stats-chart-outline"}
+              size={24}
+              color={color}
+            />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Alimentación"
         component={AlimentacionScreen}
         options={{
-          tabBarIcon: ({ color, size }) => (
-            <TabIcon icon="🍎" color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "fast-food" : "fast-food-outline"}
+              size={24}
+              color={color}
+            />
           ),
         }}
       />
-      <Tab.Screen 
-        name="Perfil" 
+      <Tab.Screen
+        name="Perfil"
         component={PerfilScreen}
         options={{
-          tabBarIcon: ({ color, size }) => (
-            <TabIcon icon="👤" color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "person" : "person-outline"}
+              size={24}
+              color={color}
+            />
           ),
         }}
       />
     </Tab.Navigator>
-  )
-}
-
-// Componente para iconos del tab
-function TabIcon({ icon, color }) {
-  return (
-    <Text style={{ fontSize: 24, opacity: color === COLORS.primary ? 1 : 0.5 }}>
-      {icon}
-    </Text>
   )
 }
 
