@@ -6,12 +6,29 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  ActivityIndicator
+  ActivityIndicator,
+  Platform,
 } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { supabase } from '../lib/supabase'
-import Button from '../components/Button'
 import { COLORS } from '../constants/colors'
+
+// Componente de tarjeta de información reutilizable
+const InfoCard = ({ label, value }) => (
+  <View style={styles.infoRow}>
+    <Text style={styles.infoLabel}>{label}</Text>
+    <Text style={styles.infoValue}>{value}</Text>
+  </View>
+)
+
+// Elemento de opción
+const OptionItem = ({ icon, text, onPress, isDestructive = false }) => (
+  <TouchableOpacity style={styles.optionButton} onPress={onPress}>
+    <Text style={[styles.optionIcon, isDestructive && { color: COLORS.error }]}>{icon}</Text>
+    <Text style={[styles.optionText, isDestructive && { color: COLORS.error }]}>{text}</Text>
+    <Text style={styles.optionArrow}>›</Text>
+  </TouchableOpacity>
+)
 
 export default function PerfilScreen({ navigation }) {
   const [loading, setLoading] = useState(true)
@@ -44,8 +61,6 @@ export default function PerfilScreen({ navigation }) {
       if (error) throw error
 
       setUserInfo(info)
-      
-      // Verificar si puede subir de nivel
       checkNivelProgress(user.id)
     } catch (error) {
       console.log('Error cargando datos:', error)
@@ -59,7 +74,7 @@ export default function PerfilScreen({ navigation }) {
       const { data, error } = await supabase
         .rpc('puede_subir_nivel', { usuario_id: userId })
       
-      if (!error && data) {
+      if (!error && data === true) {
         setPuedeSubir(true)
       }
     } catch (error) {
@@ -67,14 +82,14 @@ export default function PerfilScreen({ navigation }) {
     }
   }
 
-  const handleSubirNivel = async () => {
+  const handleSubirNivel = () => {
     Alert.alert(
       '🎉 ¡Felicidades!',
       '¿Estás listo para subir de nivel? Esto desbloqueará rutinas más desafiantes.',
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Aún no', style: 'cancel' },
         {
-          text: 'Subir de Nivel',
+          text: '¡A por ello!',
           onPress: async () => {
             setCheckingNivel(true)
             try {
@@ -85,8 +100,8 @@ export default function PerfilScreen({ navigation }) {
               
               Alert.alert(
                 '¡Éxito! 🚀',
-                `Ahora eres nivel ${data}. ¡Nuevas rutinas desbloqueadas!`,
-                [{ text: 'OK', onPress: () => loadUserData() }]
+                `¡Felicidades! Ahora eres nivel ${data}. ¡Nuevas rutinas desbloqueadas!`,
+                [{ text: 'Genial', onPress: () => loadUserData() }]
               )
             } catch (error) {
               Alert.alert('Error', 'No se pudo subir de nivel')
@@ -101,8 +116,8 @@ export default function PerfilScreen({ navigation }) {
 
   const handleLogout = async () => {
     Alert.alert(
-      '¿Cerrar sesión?',
-      '¿Estás seguro que quieres salir?',
+      'Cerrar Sesión',
+      '¿Seguro que quieres salir de tu cuenta?',
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -121,7 +136,7 @@ export default function PerfilScreen({ navigation }) {
     try {
       const { error } = await supabase
         .from('usuarios_info')
-        .update({
+        .update({ 
           nivel: nuevoNivel,
           updated_at: new Date().toISOString()
         })
@@ -130,18 +145,36 @@ export default function PerfilScreen({ navigation }) {
       if (error) throw error
 
       Alert.alert('✅ Actualizado', `Tu nivel ahora es: ${nuevoNivel}`)
-      loadUserData() // Recargar datos
+      loadUserData()
     } catch (error) {
       console.log('Error actualizando nivel:', error)
       Alert.alert('Error', 'No se pudo actualizar el nivel')
     }
   }
 
+  const showLevelOptions = () => {
+    Alert.alert(
+      'Cambiar Nivel',
+      'Selecciona tu nivel de experiencia actual.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Principiante', onPress: () => actualizarNivel('Principiante') },
+        { text: 'Intermedio', onPress: () => actualizarNivel('Intermedio') },
+        { text: 'Avanzado', onPress: () => actualizarNivel('Avanzado') }
+      ],
+      { cancelable: true }
+    )
+  }
+
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <LinearGradient
+        colors={[COLORS.background, COLORS.surface]}
+        style={styles.loadingContainer}
+      >
         <ActivityIndicator size="large" color={COLORS.primary} />
-      </View>
+        <Text style={styles.loadingText}>Cargando Perfil...</Text>
+      </LinearGradient>
     )
   }
 
@@ -154,74 +187,39 @@ export default function PerfilScreen({ navigation }) {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.title}>Perfil</Text>
+        <Text style={styles.title}>Mi Perfil</Text>
 
         {/* Avatar */}
         <View style={styles.avatarContainer}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {userInfo?.nombre_completo?.charAt(0).toUpperCase() || 'U'}
-            </Text>
+          <View style={styles.avatarShadow}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>
+                {userInfo?.nombre_completo?.charAt(0).toUpperCase() || 'U'}
+              </Text>
+            </View>
           </View>
           <Text style={styles.name}>{userInfo?.nombre_completo}</Text>
           <Text style={styles.email}>{user?.email}</Text>
         </View>
 
-        {/* Información Personal */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Información Personal</Text>
-
-          <View style={styles.infoCard}>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Edad</Text>
-              <Text style={styles.infoValue}>{userInfo?.edad} años</Text>
+        {/* Métricas */}
+        <View style={[styles.section, styles.metricsCard]}>
+          <Text style={styles.sectionTitle}>Mi Fitness Hoy</Text>
+          
+          <View style={styles.metricsGrid}>
+            <View style={styles.metricItem}>
+              <Text style={styles.metricValue}>{userInfo?.nivel || 'N/A'}</Text>
+              <Text style={styles.metricLabel}>Nivel</Text>
             </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Género</Text>
-              <Text style={styles.infoValue}>{userInfo?.genero}</Text>
+            <View style={styles.metricSeparator} />
+            <View style={styles.metricItem}>
+              <Text style={styles.metricValue}>{userInfo?.peso_actual || 'N/A'} kg</Text>
+              <Text style={styles.metricLabel}>Peso</Text>
             </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Peso</Text>
-              <Text style={styles.infoValue}>{userInfo?.peso_actual} kg</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Altura</Text>
-              <Text style={styles.infoValue}>{userInfo?.altura} cm</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Objetivos */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Objetivos y Preferencias</Text>
-
-          <View style={styles.infoCard}>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Objetivo</Text>
-              <Text style={styles.infoValue}>{userInfo?.objetivo}</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Nivel</Text>
-              <View style={styles.nivelContainer}>
-                <Text style={styles.infoValue}>{userInfo?.nivel}</Text>
-                {puedeSubir && (
-                  <View style={styles.nivelBadge}>
-                    <Text style={styles.nivelBadgeText}>¡Listo para subir!</Text>
-                  </View>
-                )}
-              </View>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Días por semana</Text>
-              <Text style={styles.infoValue}>{userInfo?.dias_semana} días</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Tiempo por sesión</Text>
-              <Text style={styles.infoValue}>{userInfo?.tiempo_sesion} min</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Lugar</Text>
-              <Text style={styles.infoValue}>{userInfo?.lugar_entrenamiento}</Text>
+            <View style={styles.metricSeparator} />
+            <View style={styles.metricItem}>
+              <Text style={styles.metricValue}>{userInfo?.altura || 'N/A'} cm</Text>
+              <Text style={styles.metricLabel}>Altura</Text>
             </View>
           </View>
 
@@ -232,68 +230,65 @@ export default function PerfilScreen({ navigation }) {
               onPress={handleSubirNivel}
               disabled={checkingNivel}
             >
-              <Text style={styles.subirNivelIcon}>🚀</Text>
-              <View style={styles.subirNivelTexts}>
-                <Text style={styles.subirNivelTitle}>¡Sube de Nivel!</Text>
-                <Text style={styles.subirNivelSubtitle}>
-                  Has completado suficientes entrenamientos
-                </Text>
-              </View>
+              {checkingNivel ? (
+                <ActivityIndicator color={COLORS.white} />
+              ) : (
+                <>
+                  <Text style={styles.subirNivelIcon}>⭐</Text>
+                  <View style={styles.subirNivelTexts}>
+                    <Text style={styles.subirNivelTitle}>¡Nivel Desbloqueado!</Text>
+                    <Text style={styles.subirNivelSubtitle}>
+                      Sube a un desafío mayor
+                    </Text>
+                  </View>
+                  <Text style={styles.subirNivelArrow}>→</Text>
+                </>
+              )}
             </TouchableOpacity>
           )}
         </View>
 
-        {/* Opciones */}
+        {/* Información Detallada */}
         <View style={styles.section}>
-          <TouchableOpacity
-            style={styles.optionButton}
-            onPress={() => {
-              Alert.alert(
-                'Cambiar Nivel',
-                'Selecciona tu nuevo nivel de experiencia',
-                [
-                  { text: 'Cancelar', style: 'cancel' },
-                  {
-                    text: 'Principiante',
-                    onPress: () => actualizarNivel('Principiante')
-                  },
-                  {
-                    text: 'Intermedio',
-                    onPress: () => actualizarNivel('Intermedio')
-                  },
-                  {
-                    text: 'Avanzado',
-                    onPress: () => actualizarNivel('Avanzado')
-                  }
-                ],
-                { cancelable: true }
-              )
-            }}
-          >
-            <Text style={styles.optionIcon}>✏️</Text>
-            <Text style={styles.optionText}>Editar Nivel</Text>
-            <Text style={styles.optionArrow}>→</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.optionButton}>
-            <Text style={styles.optionIcon}>⚙️</Text>
-            <Text style={styles.optionText}>Configuración</Text>
-            <Text style={styles.optionArrow}>→</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.optionButton}>
-            <Text style={styles.optionIcon}>❓</Text>
-            <Text style={styles.optionText}>Ayuda y Soporte</Text>
-            <Text style={styles.optionArrow}>→</Text>
-          </TouchableOpacity>
+          <Text style={styles.sectionTitle}>Detalles y Preferencias</Text>
+          <View style={styles.detailedInfoCard}>
+            <InfoCard label="Objetivo" value={userInfo?.objetivo} />
+            <InfoCard label="Lugar de Entrenamiento" value={userInfo?.lugar_entrenamiento} />
+            <InfoCard label="Días por Semana" value={`${userInfo?.dias_semana} días`} />
+            <InfoCard label="Tiempo por Sesión" value={`${userInfo?.tiempo_sesion} min`} />
+            <InfoCard label="Edad" value={`${userInfo?.edad} años`} />
+            <InfoCard label="Género" value={userInfo?.genero} />
+          </View>
         </View>
 
-        {/* Botón de Cerrar Sesión */}
-        <Button
-          title="Cerrar Sesión"
-          onPress={handleLogout}
-          variant="outline"
-          style={styles.logoutButton}
+        {/* Opciones */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Ajustes de la Cuenta</Text>
+          <View style={styles.settingsGroup}>
+            <OptionItem 
+              icon="🏋️" 
+              text="Cambiar Nivel de Experiencia" 
+              onPress={showLevelOptions} 
+            />
+            <OptionItem 
+              icon="⚙️" 
+              text="Configuración de la Aplicación" 
+              onPress={() => Alert.alert('Próximamente', 'Esta función estará disponible pronto')}
+            />
+            <OptionItem 
+              icon="❓" 
+              text="Ayuda y Soporte" 
+              onPress={() => Alert.alert('Próximamente', 'Esta función estará disponible pronto')}
+            />
+          </View>
+        </View>
+        
+        {/* Cerrar Sesión */}
+        <OptionItem 
+          icon="🚪" 
+          text="Cerrar Sesión" 
+          onPress={handleLogout} 
+          isDestructive={true}
         />
 
         <Text style={styles.version}>Versión 1.0.0</Text>
@@ -310,112 +305,144 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.background,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
   },
   scrollContent: {
     paddingTop: 70,
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingBottom: 40,
   },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
+    fontSize: 34,
+    fontWeight: '900',
     color: COLORS.text,
-    marginBottom: 32,
-  },
-  avatarContainer: {
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: COLORS.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  avatarText: {
-    fontSize: 40,
-    fontWeight: 'bold',
-    color: COLORS.white,
-  },
-  name: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: COLORS.text,
-    marginBottom: 4,
-  },
-  email: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
+    marginBottom: 30,
   },
   section: {
     marginBottom: 24,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  avatarContainer: {
+    alignItems: 'center',
+    marginBottom: 40,
+  },
+  avatarShadow: {
+    ...Platform.select({
+      ios: {
+        shadowColor: COLORS.primary,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.3,
+        shadowRadius: 15,
+      },
+      android: {
+        elevation: 10,
+        backgroundColor: COLORS.card,
+        borderRadius: 60,
+      },
+    }),
+  },
+  avatar: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 4,
+    borderColor: COLORS.surface,
+  },
+  avatarText: {
+    fontSize: 50,
+    fontWeight: 'bold',
+    color: COLORS.white,
+  },
+  name: {
+    fontSize: 28,
     fontWeight: 'bold',
     color: COLORS.text,
-    marginBottom: 12,
+    marginTop: 16,
   },
-  infoCard: {
+  email: {
+    fontSize: 16,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
+  },
+  metricsCard: {
     backgroundColor: COLORS.card,
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 16,
+    padding: 20,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  infoRow: {
+  metricsGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border + '30',
-  },
-  infoLabel: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-  },
-  infoValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-  nivelContainer: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    marginBottom: 10,
+    paddingVertical: 10,
   },
-  nivelBadge: {
-    backgroundColor: COLORS.success,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+  metricItem: {
+    flex: 1,
+    alignItems: 'center',
   },
-  nivelBadgeText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: COLORS.white,
+  metricSeparator: {
+    width: 1,
+    height: 40,
+    backgroundColor: COLORS.border,
+    marginHorizontal: 5,
+  },
+  metricValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: COLORS.primary,
+    marginBottom: 4,
+  },
+  metricLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: COLORS.textSecondary,
+    textTransform: 'uppercase',
   },
   subirNivelButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.primary,
-    borderRadius: 16,
-    padding: 16,
-    marginTop: 16,
+    backgroundColor: COLORS.success,
+    borderRadius: 12,
+    padding: 18,
+    marginTop: 15,
+    ...Platform.select({
+      ios: {
+        shadowColor: COLORS.success,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 10,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
   },
   subirNivelIcon: {
-    fontSize: 32,
-    marginRight: 12,
+    fontSize: 28,
+    marginRight: 15,
   },
   subirNivelTexts: {
     flex: 1,
   },
   subirNivelTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
     color: COLORS.white,
     marginBottom: 2,
@@ -423,39 +450,87 @@ const styles = StyleSheet.create({
   subirNivelSubtitle: {
     fontSize: 12,
     color: COLORS.white,
-    opacity: 0.9,
+    opacity: 0.8,
+    fontWeight: '500',
+  },
+  subirNivelArrow: {
+    fontSize: 24,
+    color: COLORS.white,
+    fontWeight: '700',
+  },
+  detailedInfoCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    ...Platform.select({
+      ios: {
+        shadowColor: COLORS.black,
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border + '30',
+  },
+  infoLabel: {
+    fontSize: 15,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
+  },
+  infoValue: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  settingsGroup: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   optionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.card,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
   },
   optionIcon: {
-    fontSize: 24,
-    marginRight: 16,
+    fontSize: 20,
+    width: 30,
+    textAlign: 'center',
+    marginRight: 10,
   },
   optionText: {
     flex: 1,
     fontSize: 16,
     color: COLORS.text,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   optionArrow: {
-    fontSize: 20,
-    color: COLORS.textMuted,
-  },
-  logoutButton: {
-    marginTop: 16,
+    fontSize: 24,
+    color: COLORS.textSecondary,
+    fontWeight: '300',
   },
   version: {
     textAlign: 'center',
-    fontSize: 12,
-    color: COLORS.textMuted,
-    marginTop: 24,
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    marginTop: 30,
+    fontWeight: '300',
   },
 })

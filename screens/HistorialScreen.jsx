@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react'
-import {
-  View,
-  Text,
-  StyleSheet,
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
@@ -16,6 +16,7 @@ export default function HistorialScreen() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [entrenamientos, setEntrenamientos] = useState([])
+  const [expandido, setExpandido] = useState(null) // ID del entrenamiento expandido
   const [estadisticas, setEstadisticas] = useState({
     totalEntrenamientos: 0,
     totalMinutos: 0,
@@ -59,7 +60,7 @@ export default function HistorialScreen() {
       // Entrenamientos de esta semana
       const haceUnaSemana = new Date()
       haceUnaSemana.setDate(haceUnaSemana.getDate() - 7)
-      const semana = entrenamientosData?.filter(e =>
+      const semana = entrenamientosData?.filter(e => 
         new Date(e.fecha) >= haceUnaSemana
       ).length || 0
 
@@ -95,8 +96,8 @@ export default function HistorialScreen() {
     } else if (date.toDateString() === ayer.toDateString()) {
       return 'Ayer'
     } else {
-      return date.toLocaleDateString('es-ES', {
-        day: 'numeric',
+      return date.toLocaleDateString('es-ES', { 
+        day: 'numeric', 
         month: 'short',
         year: date.getFullYear() !== hoy.getFullYear() ? 'numeric' : undefined
       })
@@ -104,10 +105,14 @@ export default function HistorialScreen() {
   }
 
   const formatearHora = (fecha) => {
-    return new Date(fecha).toLocaleTimeString('es-ES', {
-      hour: '2-digit',
-      minute: '2-digit'
+    return new Date(fecha).toLocaleTimeString('es-ES', { 
+      hour: '2-digit', 
+      minute: '2-digit' 
     })
+  }
+
+  const toggleExpand = (id) => {
+    setExpandido(expandido === id ? null : id)
   }
 
   if (loading) {
@@ -123,7 +128,7 @@ export default function HistorialScreen() {
       colors={[COLORS.background, COLORS.surface]}
       style={styles.container}
     >
-      <ScrollView
+      <ScrollView 
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -179,57 +184,134 @@ export default function HistorialScreen() {
               </Text>
             </View>
           ) : (
-            entrenamientos.map((entrenamiento) => (
-              <View key={entrenamiento.id} style={styles.entrenamientoCard}>
-                <View style={styles.entrenamientoHeader}>
-                  <View style={styles.entrenamientoFecha}>
-                    <Text style={styles.entrenamientoDia}>
-                      {formatearFecha(entrenamiento.fecha)}
-                    </Text>
-                    <Text style={styles.entrenamientoHora}>
-                      {formatearHora(entrenamiento.fecha)}
-                    </Text>
-                  </View>
-
-                  {entrenamiento.xp_ganada > 0 && (
-                    <View style={styles.xpBadge}>
-                      <Text style={styles.xpBadgeText}>+{entrenamiento.xp_ganada} XP</Text>
-                    </View>
-                  )}
-                </View>
-
-                <Text style={styles.entrenamientoNombre}>
-                  {entrenamiento.rutinas_predefinidas?.nombre || 'Entrenamiento'}
-                </Text>
-
-                <View style={styles.entrenamientoStats}>
-                  <View style={styles.entrenamientoStat}>
-                    <Text style={styles.entrenamientoStatIcon}>⏱️</Text>
-                    <Text style={styles.entrenamientoStatText}>
-                      {entrenamiento.duracion_minutos} min
-                    </Text>
-                  </View>
-
-                  <View style={styles.entrenamientoStat}>
-                    <Text style={styles.entrenamientoStatIcon}>🔥</Text>
-                    <Text style={styles.entrenamientoStatText}>
-                      {entrenamiento.calorias_quemadas || 0} kcal
-                    </Text>
-                  </View>
-
-                  {entrenamiento.ejercicios_completados && (
-                    <View style={styles.entrenamientoStat}>
-                      <Text style={styles.entrenamientoStatIcon}>💪</Text>
-                      <Text style={styles.entrenamientoStatText}>
-                        {Array.isArray(entrenamiento.ejercicios_completados)
-                          ? entrenamiento.ejercicios_completados.length
-                          : 0} ejercicios
+            entrenamientos.map((entrenamiento) => {
+              const isExpanded = expandido === entrenamiento.id
+              
+              return (
+                <TouchableOpacity 
+                  key={entrenamiento.id} 
+                  style={styles.entrenamientoCard}
+                  onPress={() => toggleExpand(entrenamiento.id)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.entrenamientoHeader}>
+                    <View style={styles.entrenamientoFecha}>
+                      <Text style={styles.entrenamientoDia}>
+                        {formatearFecha(entrenamiento.fecha)}
+                      </Text>
+                      <Text style={styles.entrenamientoHora}>
+                        {formatearHora(entrenamiento.fecha)}
                       </Text>
                     </View>
+                    
+                    {entrenamiento.xp_ganada > 0 && (
+                      <View style={styles.xpBadge}>
+                        <Text style={styles.xpBadgeText}>+{entrenamiento.xp_ganada} XP</Text>
+                      </View>
+                    )}
+
+                    <Text style={styles.expandIcon}>
+                      {isExpanded ? '▼' : '▶'}
+                    </Text>
+                  </View>
+
+                  <Text style={styles.entrenamientoNombre}>
+                    {entrenamiento.rutinas_predefinidas?.nombre || 'Entrenamiento'}
+                  </Text>
+
+                  <View style={styles.entrenamientoStats}>
+                    <View style={styles.entrenamientoStat}>
+                      <Text style={styles.entrenamientoStatIcon}>⏱️</Text>
+                      <Text style={styles.entrenamientoStatText}>
+                        {entrenamiento.duracion_minutos} min
+                      </Text>
+                    </View>
+
+                    <View style={styles.entrenamientoStat}>
+                      <Text style={styles.entrenamientoStatIcon}>🔥</Text>
+                      <Text style={styles.entrenamientoStatText}>
+                        {entrenamiento.calorias_quemadas || 0} kcal
+                      </Text>
+                    </View>
+
+                    {entrenamiento.ejercicios_completados && (
+                      <View style={styles.entrenamientoStat}>
+                        <Text style={styles.entrenamientoStatIcon}>💪</Text>
+                        <Text style={styles.entrenamientoStatText}>
+                          {Array.isArray(entrenamiento.ejercicios_completados) 
+                            ? entrenamiento.ejercicios_completados.length 
+                            : 0} ejercicios
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Contenido expandido */}
+                  {isExpanded && (
+                    <View style={styles.detallesContainer}>
+                      <View style={styles.divider} />
+                      
+                      <Text style={styles.detallesTitle}>📋 Detalles del Entrenamiento</Text>
+                      
+                      {/* Resumen */}
+                      <View style={styles.resumenBox}>
+                        <View style={styles.resumenRow}>
+                          <Text style={styles.resumenLabel}>Duración Total:</Text>
+                          <Text style={styles.resumenValue}>{entrenamiento.duracion_minutos} minutos</Text>
+                        </View>
+                        <View style={styles.resumenRow}>
+                          <Text style={styles.resumenLabel}>Calorías Quemadas:</Text>
+                          <Text style={styles.resumenValue}>{entrenamiento.calorias_quemadas || 0} kcal</Text>
+                        </View>
+                        <View style={styles.resumenRow}>
+                          <Text style={styles.resumenLabel}>XP Ganada:</Text>
+                          <Text style={[styles.resumenValue, { color: COLORS.success }]}>
+                            +{entrenamiento.xp_ganada} XP
+                          </Text>
+                        </View>
+                      </View>
+
+                      {/* Lista de ejercicios completados */}
+                      {entrenamiento.ejercicios_completados && 
+                       Array.isArray(entrenamiento.ejercicios_completados) && 
+                       entrenamiento.ejercicios_completados.length > 0 && (
+                        <>
+                          <Text style={styles.ejerciciosTitle}>
+                            ✅ Ejercicios Completados ({entrenamiento.ejercicios_completados.length})
+                          </Text>
+                          <View style={styles.ejerciciosList}>
+                            {entrenamiento.ejercicios_completados.map((ejercicioId, index) => (
+                              <View key={index} style={styles.ejercicioItem}>
+                                <View style={styles.ejercicioNumero}>
+                                  <Text style={styles.ejercicioNumeroText}>{index + 1}</Text>
+                                </View>
+                                <Text style={styles.ejercicioNombre}>
+                                  Ejercicio {index + 1}
+                                </Text>
+                                <Text style={styles.checkMark}>✓</Text>
+                              </View>
+                            ))}
+                          </View>
+                        </>
+                      )}
+
+                      {/* Notas si existen */}
+                      {entrenamiento.notas && (
+                        <View style={styles.notasBox}>
+                          <Text style={styles.notasTitle}>📝 Notas:</Text>
+                          <Text style={styles.notasText}>{entrenamiento.notas}</Text>
+                        </View>
+                      )}
+
+                      {/* Botón de compartir */}
+                      <TouchableOpacity style={styles.compartirButton}>
+                        <Text style={styles.compartirButtonText}>Compartir Logro 📤</Text>
+                      </TouchableOpacity>
+                    </View>
                   )}
-                </View>
-              </View>
-            ))
+                </TouchableOpacity>
+              )
+            })
           )}
         </View>
 
@@ -385,11 +467,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
+    marginRight: 8,
   },
   xpBadgeText: {
     fontSize: 11,
     fontWeight: '600',
     color: COLORS.white,
+  },
+  expandIcon: {
+    fontSize: 12,
+    color: COLORS.primary,
+    fontWeight: '600',
   },
   entrenamientoNombre: {
     fontSize: 16,
@@ -413,6 +501,112 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.textSecondary,
     fontWeight: '500',
+  },
+  detallesContainer: {
+    marginTop: 16,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: COLORS.border,
+    marginBottom: 16,
+  },
+  detallesTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: 12,
+  },
+  resumenBox: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+  },
+  resumenRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+  },
+  resumenLabel: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
+  },
+  resumenValue: {
+    fontSize: 13,
+    color: COLORS.text,
+    fontWeight: '600',
+  },
+  ejerciciosTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: 12,
+  },
+  ejerciciosList: {
+    marginBottom: 16,
+  },
+  ejercicioItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 8,
+  },
+  ejercicioNumero: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  ejercicioNumeroText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: COLORS.white,
+  },
+  ejercicioNombre: {
+    flex: 1,
+    fontSize: 13,
+    color: COLORS.text,
+    fontWeight: '500',
+  },
+  checkMark: {
+    fontSize: 16,
+    color: COLORS.success,
+  },
+  notasBox: {
+    backgroundColor: COLORS.primary + '15',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    borderLeftWidth: 3,
+    borderLeftColor: COLORS.primary,
+  },
+  notasTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: 6,
+  },
+  notasText: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    lineHeight: 18,
+  },
+  compartirButton: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+  },
+  compartirButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.white,
   },
   bottomSpacer: {
     height: 20,
