@@ -34,7 +34,8 @@ export default function RutinasScreen({ navigation }) {
 
       setUserInfo(info)
 
-      // Cargar todas las rutinas que coincidan con el objetivo
+      // Cargar TODAS las rutinas que coincidan con el objetivo
+      // SIN filtrar por nivel - mostrar todas
       const { data, error } = await supabase
         .from('rutinas_predefinidas')
         .select('*')
@@ -43,6 +44,7 @@ export default function RutinasScreen({ navigation }) {
 
       if (error) throw error
 
+      console.log(`Total rutinas para ${info.objetivo}:`, data?.length || 0)
       setRutinas(data || [])
     } catch (error) {
       console.log('Error cargando rutinas:', error)

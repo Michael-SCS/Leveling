@@ -58,32 +58,18 @@ export default function DashboardScreen({ navigation }) {
   const loadRutinasPersonalizadas = async (objetivo, nivel, lugar) => {
     setLoadingRutinas(true)
     try {
-      // Convertir nivel texto a rango numérico
-      let nivelMin = 1, nivelMax = 5
-
-      if (nivel === 'Principiante') {
-        nivelMin = 1
-        nivelMax = 5
-      } else if (nivel === 'Intermedio') {
-        nivelMin = 6
-        nivelMax = 15
-      } else if (nivel === 'Avanzado') {
-        nivelMin = 16
-        nivelMax = 100
-      }
-
-      // Solo buscar rutinas del nivel actual del usuario
+      // Buscar rutinas que coincidan EXACTAMENTE con el perfil del usuario
       const { data, error } = await supabase
         .from('rutinas_predefinidas')
         .select('*')
         .eq('objetivo', objetivo)
-        .eq('nivel', nivel) // Solo su nivel exacto
+        .eq('nivel', nivel)  // Solo su nivel EXACTO
         .in('lugar', [lugar, 'Ambos'])
         .order('created_at', { ascending: false })
-        .limit(5)
 
       if (error) throw error
 
+      console.log(`Rutinas encontradas para ${nivel} - ${objetivo}:`, data?.length || 0)
       setRutinas(data || [])
     } catch (error) {
       console.log('Error cargando rutinas:', error)
@@ -106,14 +92,14 @@ export default function DashboardScreen({ navigation }) {
   }
 
   const renderRutinaItem = ({ item }) => (
-    <TouchableOpacity
+    <TouchableOpacity 
       style={styles.rutinaCard}
       onPress={() => handleRutinaPress(item)}
       activeOpacity={0.9}
     >
       {item.imagen_url && (
-        <Image
-          source={{ uri: item.imagen_url }}
+        <Image 
+          source={{ uri: item.imagen_url }} 
           style={styles.rutinaImage}
           resizeMode="cover"
         />
@@ -149,7 +135,7 @@ export default function DashboardScreen({ navigation }) {
       colors={[COLORS.background, COLORS.surface]}
       style={styles.container}
     >
-      <ScrollView
+      <ScrollView 
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
@@ -212,14 +198,14 @@ export default function DashboardScreen({ navigation }) {
                 Basadas en tu objetivo
               </Text>
             </View>
-            <TouchableOpacity
+            <TouchableOpacity 
               onPress={() => navigation.navigate('Rutinas')}
               style={styles.verTodoButton}
             >
               <Text style={styles.verTodoText}>Ver todo</Text>
             </TouchableOpacity>
           </View>
-
+          
           {loadingRutinas ? (
             <ActivityIndicator size="small" color={COLORS.primary} style={{ marginTop: 20 }} />
           ) : rutinas.length > 0 ? (
