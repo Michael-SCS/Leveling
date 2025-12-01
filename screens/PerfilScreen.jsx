@@ -13,20 +13,27 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { supabase } from '../lib/supabase'
 import { COLORS } from '../constants/colors'
 
-// Componente de tarjeta de información reutilizable
-const InfoCard = ({ label, value }) => (
+const InfoCard = ({ label, value, emoji }) => (
   <View style={styles.infoRow}>
-    <Text style={styles.infoLabel}>{label}</Text>
+    <View style={styles.infoLeft}>
+      {emoji && <Text style={styles.infoEmoji}>{emoji}</Text>}
+      <Text style={styles.infoLabel}>{label}</Text>
+    </View>
     <Text style={styles.infoValue}>{value}</Text>
   </View>
 )
 
-// Elemento de opción
-const OptionItem = ({ icon, text, onPress, isDestructive = false }) => (
-  <TouchableOpacity style={styles.optionButton} onPress={onPress}>
-    <Text style={[styles.optionIcon, isDestructive && { color: COLORS.error }]}>{icon}</Text>
+const OptionItem = ({ icon, text, onPress, isDestructive = false, showArrow = true }) => (
+  <TouchableOpacity 
+    style={[styles.optionButton, isDestructive && styles.optionButtonDestructive]} 
+    onPress={onPress}
+    activeOpacity={0.7}
+  >
+    <View style={[styles.optionIconContainer, isDestructive && styles.optionIconDestructive]}>
+      <Text style={styles.optionIcon}>{icon}</Text>
+    </View>
     <Text style={[styles.optionText, isDestructive && { color: COLORS.error }]}>{text}</Text>
-    <Text style={styles.optionArrow}>›</Text>
+    {showArrow && <Text style={styles.optionArrow}>›</Text>}
   </TouchableOpacity>
 )
 
@@ -40,6 +47,15 @@ export default function PerfilScreen({ navigation }) {
   useEffect(() => {
     loadUserData()
   }, [])
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      if (user) {
+        loadUserData()
+      }
+    })
+    return unsubscribe
+  }, [navigation, user])
 
   const loadUserData = async () => {
     try {
@@ -178,101 +194,134 @@ export default function PerfilScreen({ navigation }) {
     )
   }
 
+  const calcularIMC = () => {
+    if (userInfo?.peso_actual && userInfo?.altura) {
+      const alturaMetros = userInfo.altura / 100
+      const imc = userInfo.peso_actual / (alturaMetros * alturaMetros)
+      return imc.toFixed(1)
+    }
+    return 'N/A'
+  }
+
   return (
     <LinearGradient
       colors={[COLORS.background, COLORS.surface]}
       style={styles.container}
     >
+      {/* Header fijo con fondo */}
+            <View style={styles.headerOverlay} />
+
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.title}>Mi Perfil</Text>
-
-        {/* Avatar */}
-        <View style={styles.avatarContainer}>
-          <View style={styles.avatarShadow}>
-            <View style={styles.avatar}>
+        {/* Header con Avatar Centrado */}
+        <View style={styles.headerContainer}>
+          <View style={styles.avatarContainer}>
+            <LinearGradient
+              colors={[COLORS.primary, COLORS.primary + 'dd']}
+              style={styles.avatar}
+            >
               <Text style={styles.avatarText}>
                 {userInfo?.nombre_completo?.charAt(0).toUpperCase() || 'U'}
               </Text>
-            </View>
+            </LinearGradient>
           </View>
           <Text style={styles.name}>{userInfo?.nombre_completo}</Text>
           <Text style={styles.email}>{user?.email}</Text>
+          <View style={styles.separator} />
         </View>
 
-        {/* Métricas */}
-        <View style={[styles.section, styles.metricsCard]}>
-          <Text style={styles.sectionTitle}>Mi Fitness Hoy</Text>
-          
-          <View style={styles.metricsGrid}>
-            <View style={styles.metricItem}>
-              <Text style={styles.metricValue}>{userInfo?.nivel || 'N/A'}</Text>
-              <Text style={styles.metricLabel}>Nivel</Text>
-            </View>
-            <View style={styles.metricSeparator} />
-            <View style={styles.metricItem}>
-              <Text style={styles.metricValue}>{userInfo?.peso_actual || 'N/A'} kg</Text>
-              <Text style={styles.metricLabel}>Peso</Text>
-            </View>
-            <View style={styles.metricSeparator} />
-            <View style={styles.metricItem}>
-              <Text style={styles.metricValue}>{userInfo?.altura || 'N/A'} cm</Text>
-              <Text style={styles.metricLabel}>Altura</Text>
-            </View>
+        {/* Badge de Nivel con Gradiente */}
+        <LinearGradient
+          colors={[COLORS.primary, COLORS.primary + 'dd']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.nivelCard}
+        >
+          <View style={styles.nivelIconContainer}>
+            <Text style={styles.nivelIcon}>🏋️</Text>
           </View>
-
-          {/* Botón de subir de nivel */}
+          <View style={styles.nivelInfo}>
+            <Text style={styles.nivelLabel}>Nivel Actual</Text>
+            <Text style={styles.nivelValue}>{userInfo?.nivel || 'N/A'}</Text>
+          </View>
           {puedeSubir && userInfo?.nivel !== 'Avanzado' && (
-            <TouchableOpacity
-              style={styles.subirNivelButton}
+            <TouchableOpacity 
+              style={styles.nivelUpButton}
               onPress={handleSubirNivel}
               disabled={checkingNivel}
             >
               {checkingNivel ? (
-                <ActivityIndicator color={COLORS.white} />
+                <ActivityIndicator size="small" color={COLORS.white} />
               ) : (
-                <>
-                  <Text style={styles.subirNivelIcon}>⭐</Text>
-                  <View style={styles.subirNivelTexts}>
-                    <Text style={styles.subirNivelTitle}>¡Nivel Desbloqueado!</Text>
-                    <Text style={styles.subirNivelSubtitle}>
-                      Sube a un desafío mayor
-                    </Text>
-                  </View>
-                  <Text style={styles.subirNivelArrow}>→</Text>
-                </>
+                <Text style={styles.nivelUpIcon}>⬆️</Text>
               )}
             </TouchableOpacity>
           )}
+        </LinearGradient>
+
+        {/* Métricas Grid */}
+        <View style={styles.metricsGrid}>
+          <View style={styles.metricCard}>
+            <LinearGradient
+              colors={[COLORS.primary + '20', COLORS.primary + '10']}
+              style={styles.metricGradient}
+            >
+              <Text style={styles.metricEmoji}>⚖️</Text>
+              <Text style={styles.metricValue}>{userInfo?.peso_actual || 'N/A'}</Text>
+              <Text style={styles.metricLabel}>kg</Text>
+            </LinearGradient>
+          </View>
+
+          <View style={styles.metricCard}>
+            <LinearGradient
+              colors={['#4ECDC420', '#4ECDC410']}
+              style={styles.metricGradient}
+            >
+              <Text style={styles.metricEmoji}>📏</Text>
+              <Text style={styles.metricValue}>{userInfo?.altura || 'N/A'}</Text>
+              <Text style={styles.metricLabel}>cm</Text>
+            </LinearGradient>
+          </View>
+
+          <View style={styles.metricCard}>
+            <LinearGradient
+              colors={['#FF6B6B20', '#FF6B6B10']}
+              style={styles.metricGradient}
+            >
+              <Text style={styles.metricEmoji}>📊</Text>
+              <Text style={styles.metricValue}>{calcularIMC()}</Text>
+              <Text style={styles.metricLabel}>IMC</Text>
+            </LinearGradient>
+          </View>
         </View>
 
         {/* Información Detallada */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Detalles y Preferencias</Text>
+          <Text style={styles.sectionTitle}>Detalles del Perfil</Text>
           <View style={styles.detailedInfoCard}>
-            <InfoCard label="Objetivo" value={userInfo?.objetivo} />
-            <InfoCard label="Lugar de Entrenamiento" value={userInfo?.lugar_entrenamiento} />
-            <InfoCard label="Días por Semana" value={`${userInfo?.dias_semana} días`} />
-            <InfoCard label="Tiempo por Sesión" value={`${userInfo?.tiempo_sesion} min`} />
-            <InfoCard label="Edad" value={`${userInfo?.edad} años`} />
-            <InfoCard label="Género" value={userInfo?.genero} />
+            <InfoCard emoji="🎯" label="Objetivo" value={userInfo?.objetivo || 'N/A'} />
+            <InfoCard emoji="📍" label="Lugar" value={userInfo?.lugar_entrenamiento || 'N/A'} />
+            <InfoCard emoji="📅" label="Frecuencia" value={`${userInfo?.dias_semana || 0} días/semana`} />
+            <InfoCard emoji="⏱️" label="Duración" value={`${userInfo?.tiempo_sesion || 0} min/sesión`} />
+            <InfoCard emoji="🎂" label="Edad" value={`${userInfo?.edad || 'N/A'} años`} />
+            <InfoCard emoji="👤" label="Género" value={userInfo?.genero || 'N/A'} />
           </View>
         </View>
 
-        {/* Opciones */}
+        {/* Opciones de Configuración */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Ajustes de la Cuenta</Text>
-          <View style={styles.settingsGroup}>
+          <Text style={styles.sectionTitle}>Configuración</Text>
+          <View style={styles.optionsContainer}>
             <OptionItem 
-              icon="🏋️" 
-              text="Cambiar Nivel de Experiencia" 
+              icon="🔄" 
+              text="Cambiar Nivel" 
               onPress={showLevelOptions} 
             />
             <OptionItem 
               icon="⚙️" 
-              text="Configuración de la Aplicación" 
+              text="Ajustes de la App" 
               onPress={() => Alert.alert('Próximamente', 'Esta función estará disponible pronto')}
             />
             <OptionItem 
@@ -280,16 +329,23 @@ export default function PerfilScreen({ navigation }) {
               text="Ayuda y Soporte" 
               onPress={() => Alert.alert('Próximamente', 'Esta función estará disponible pronto')}
             />
+            <OptionItem 
+              icon="ℹ️" 
+              text="Acerca de" 
+              onPress={() => Alert.alert('Versión 1.0.0', 'Tu app de fitness personalizada')}
+            />
           </View>
         </View>
-        
-        {/* Cerrar Sesión */}
-        <OptionItem 
-          icon="🚪" 
-          text="Cerrar Sesión" 
-          onPress={handleLogout} 
-          isDestructive={true}
-        />
+
+        {/* Botón de Cerrar Sesión */}
+        <TouchableOpacity 
+          style={styles.logoutButton}
+          onPress={handleLogout}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.logoutIcon}>🚪</Text>
+          <Text style={styles.logoutText}>Cerrar Sesión</Text>
+        </TouchableOpacity>
 
         <Text style={styles.version}>Versión 1.0.0</Text>
       </ScrollView>
@@ -301,70 +357,54 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  headerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 75,
+    backgroundColor: COLORS.background,
+    zIndex: 10,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 10,
+    marginTop: 16,
     fontSize: 16,
     color: COLORS.textSecondary,
     fontWeight: '500',
   },
   scrollContent: {
-    paddingTop: 70,
-    paddingHorizontal: 20,
+    paddingTop: 80,
+    paddingHorizontal: 24,
     paddingBottom: 40,
   },
-  title: {
-    fontSize: 34,
-    fontWeight: '900',
-    color: COLORS.text,
-    marginBottom: 30,
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginBottom: 10,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+  headerContainer: {
+    alignItems: 'center',
+    marginBottom: 32,
   },
   avatarContainer: {
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  avatarShadow: {
-    ...Platform.select({
-      ios: {
-        shadowColor: COLORS.primary,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.3,
-        shadowRadius: 15,
-      },
-      android: {
-        elevation: 10,
-        backgroundColor: COLORS.card,
-        borderRadius: 60,
-      },
-    }),
+    marginBottom: 16,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 10,
   },
   avatar: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: COLORS.primary,
+    width: 110,
+    height: 110,
+    borderRadius: 55,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 4,
-    borderColor: COLORS.surface,
+    borderColor: COLORS.card,
   },
   avatarText: {
-    fontSize: 50,
+    fontSize: 48,
     fontWeight: 'bold',
     color: COLORS.white,
   },
@@ -372,117 +412,143 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
     color: COLORS.text,
-    marginTop: 16,
+    textAlign: 'center',
+    marginBottom: 6,
   },
   email: {
-    fontSize: 16,
+    fontSize: 15,
     color: COLORS.textSecondary,
     fontWeight: '500',
+    textAlign: 'center',
   },
-  metricsCard: {
-    backgroundColor: COLORS.card,
-    borderRadius: 16,
+  separator: {
+    width: 60,
+    height: 4,
+    backgroundColor: COLORS.primary,
+    borderRadius: 2,
+    marginTop: 12,
+  },
+  nivelCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 20,
     padding: 20,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    marginBottom: 20,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  nivelIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  nivelIcon: {
+    fontSize: 28,
+  },
+  nivelInfo: {
+    flex: 1,
+  },
+  nivelLabel: {
+    fontSize: 13,
+    color: COLORS.white,
+    opacity: 0.9,
+    marginBottom: 4,
+    fontWeight: '500',
+  },
+  nivelValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: COLORS.white,
+  },
+  nivelUpButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  nivelUpIcon: {
+    fontSize: 20,
   },
   metricsGrid: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-    paddingVertical: 10,
+    gap: 12,
+    marginBottom: 28,
   },
-  metricItem: {
+  metricCard: {
     flex: 1,
-    alignItems: 'center',
   },
-  metricSeparator: {
-    width: 1,
-    height: 40,
-    backgroundColor: COLORS.border,
-    marginHorizontal: 5,
+  metricGradient: {
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    minHeight: 110,
+    justifyContent: 'center',
+  },
+  metricEmoji: {
+    fontSize: 32,
+    marginBottom: 8,
   },
   metricValue: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: COLORS.primary,
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: COLORS.text,
     marginBottom: 4,
   },
   metricLabel: {
     fontSize: 12,
-    fontWeight: '500',
     color: COLORS.textSecondary,
+    fontWeight: '600',
     textTransform: 'uppercase',
   },
-  subirNivelButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.success,
-    borderRadius: 12,
-    padding: 18,
-    marginTop: 15,
-    ...Platform.select({
-      ios: {
-        shadowColor: COLORS.success,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 10,
-      },
-      android: {
-        elevation: 6,
-      },
-    }),
+  section: {
+    marginBottom: 24,
   },
-  subirNivelIcon: {
-    fontSize: 28,
-    marginRight: 15,
-  },
-  subirNivelTexts: {
-    flex: 1,
-  },
-  subirNivelTitle: {
+  sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: COLORS.white,
-    marginBottom: 2,
-  },
-  subirNivelSubtitle: {
-    fontSize: 12,
-    color: COLORS.white,
-    opacity: 0.8,
-    fontWeight: '500',
-  },
-  subirNivelArrow: {
-    fontSize: 24,
-    color: COLORS.white,
-    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: 12,
   },
   detailedInfoCard: {
     backgroundColor: COLORS.card,
-    borderRadius: 12,
+    borderRadius: 20,
+    overflow: 'hidden',
     borderWidth: 1,
     borderColor: COLORS.border,
-    ...Platform.select({
-      ios: {
-        shadowColor: COLORS.black,
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 3,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border + '30',
+    borderBottomColor: COLORS.border + '40',
+  },
+  infoLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  infoEmoji: {
+    fontSize: 20,
+    marginRight: 12,
   },
   infoLabel: {
     fontSize: 15,
@@ -491,46 +557,85 @@ const styles = StyleSheet.create({
   },
   infoValue: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '700',
     color: COLORS.text,
   },
-  settingsGroup: {
-    borderRadius: 12,
+  optionsContainer: {
+    backgroundColor: COLORS.card,
+    borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: COLORS.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   optionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.card,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: COLORS.border + '40',
+  },
+  optionButtonDestructive: {
+    borderBottomWidth: 0,
+  },
+  optionIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.primary + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  optionIconDestructive: {
+    backgroundColor: COLORS.error + '20',
   },
   optionIcon: {
     fontSize: 20,
-    width: 30,
-    textAlign: 'center',
-    marginRight: 10,
   },
   optionText: {
     flex: 1,
     fontSize: 16,
     color: COLORS.text,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   optionArrow: {
     fontSize: 24,
     color: COLORS.textSecondary,
+    opacity: 0.5,
     fontWeight: '300',
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    padding: 18,
+    marginTop: 8,
+    borderWidth: 2,
+    borderColor: COLORS.error + '40',
+  },
+  logoutIcon: {
+    fontSize: 20,
+    marginRight: 8,
+  },
+  logoutText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.error,
   },
   version: {
     textAlign: 'center',
     fontSize: 13,
     color: COLORS.textSecondary,
-    marginTop: 30,
-    fontWeight: '300',
+    marginTop: 24,
+    fontWeight: '400',
+    opacity: 0.6,
   },
 })

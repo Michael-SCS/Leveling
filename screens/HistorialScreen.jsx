@@ -16,7 +16,7 @@ export default function HistorialScreen() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [entrenamientos, setEntrenamientos] = useState([])
-  const [expandido, setExpandido] = useState(null) // ID del entrenamiento expandido
+  const [expandido, setExpandido] = useState(null)
   const [estadisticas, setEstadisticas] = useState({
     totalEntrenamientos: 0,
     totalMinutos: 0,
@@ -33,7 +33,6 @@ export default function HistorialScreen() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
 
-      // Cargar entrenamientos con info de rutina
       const { data: entrenamientosData, error } = await supabase
         .from('entrenamientos_completados')
         .select(`
@@ -51,13 +50,11 @@ export default function HistorialScreen() {
 
       setEntrenamientos(entrenamientosData || [])
 
-      // Calcular estadísticas
       const total = entrenamientosData?.length || 0
       const minutos = entrenamientosData?.reduce((sum, e) => sum + (e.duracion_minutos || 0), 0) || 0
       const calorias = entrenamientosData?.reduce((sum, e) => sum + (e.calorias_quemadas || 0), 0) || 0
       const xp = entrenamientosData?.reduce((sum, e) => sum + (e.xp_ganada || 0), 0) || 0
 
-      // Entrenamientos de esta semana
       const haceUnaSemana = new Date()
       haceUnaSemana.setDate(haceUnaSemana.getDate() - 7)
       const semana = entrenamientosData?.filter(e => 
@@ -119,15 +116,20 @@ export default function HistorialScreen() {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={styles.loadingText}>Cargando historial...</Text>
       </View>
     )
   }
 
   return (
+    
     <LinearGradient
       colors={[COLORS.background, COLORS.surface]}
       style={styles.container}
     >
+    {/* Header fijo con fondo */}
+      <View style={styles.headerOverlay} />
+      
       <ScrollView 
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -135,43 +137,76 @@ export default function HistorialScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
         }
       >
-        <Text style={styles.title}>Historial</Text>
-
-        {/* Estadísticas generales */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{estadisticas.totalEntrenamientos}</Text>
-            <Text style={styles.statLabel}>Entrenamientos</Text>
-          </View>
-
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{estadisticas.estaSemana}</Text>
-            <Text style={styles.statLabel}>Esta semana</Text>
-          </View>
-
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{Math.floor(estadisticas.totalMinutos / 60)}h</Text>
-            <Text style={styles.statLabel}>Total tiempo</Text>
-          </View>
-
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{estadisticas.totalCalorias}</Text>
-            <Text style={styles.statLabel}>Calorías</Text>
-          </View>
+        {/* Header Mejorado */}
+        <View style={styles.headerContainer}>
+          <Text style={styles.title}>Historial</Text>
+          <Text style={styles.subtitle}>Revisa tus logros 🏆</Text>
         </View>
 
-        {/* XP Total */}
-        <View style={styles.xpCard}>
+        {/* Estadísticas Destacadas */}
+        <LinearGradient
+          colors={[COLORS.primary, COLORS.primary + 'dd']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.xpCard}
+        >
           <View style={styles.xpIcon}>
             <Text style={styles.xpIconText}>⭐</Text>
           </View>
           <View style={styles.xpInfo}>
-            <Text style={styles.xpLabel}>XP Total Ganada</Text>
+            <Text style={styles.xpLabel}>XP Total Acumulada</Text>
             <Text style={styles.xpValue}>+{estadisticas.totalXP} XP</Text>
+          </View>
+        </LinearGradient>
+
+        {/* Grid de Estadísticas */}
+        <View style={styles.statsGrid}>
+          <View style={styles.statCard}>
+            <LinearGradient
+              colors={[COLORS.primary + '20', COLORS.primary + '10']}
+              style={styles.statGradient}
+            >
+              <Text style={styles.statEmoji}>💪</Text>
+              <Text style={styles.statValue}>{estadisticas.totalEntrenamientos}</Text>
+              <Text style={styles.statLabel}>Total{'\n'}Entrenamientos</Text>
+            </LinearGradient>
+          </View>
+
+          <View style={styles.statCard}>
+            <LinearGradient
+              colors={['#4ECDC420', '#4ECDC410']}
+              style={styles.statGradient}
+            >
+              <Text style={styles.statEmoji}>🔥</Text>
+              <Text style={styles.statValue}>{estadisticas.estaSemana}</Text>
+              <Text style={styles.statLabel}>Esta{'\n'}Semana</Text>
+            </LinearGradient>
+          </View>
+
+          <View style={styles.statCard}>
+            <LinearGradient
+              colors={['#FF6B6B20', '#FF6B6B10']}
+              style={styles.statGradient}
+            >
+              <Text style={styles.statEmoji}>⏱️</Text>
+              <Text style={styles.statValue}>{Math.floor(estadisticas.totalMinutos / 60)}h</Text>
+              <Text style={styles.statLabel}>Tiempo{'\n'}Total</Text>
+            </LinearGradient>
+          </View>
+
+          <View style={styles.statCard}>
+            <LinearGradient
+              colors={['#FFD93D20', '#FFD93D10']}
+              style={styles.statGradient}
+            >
+              <Text style={styles.statEmoji}>🔥</Text>
+              <Text style={styles.statValue}>{estadisticas.totalCalorias}</Text>
+              <Text style={styles.statLabel}>Total{'\n'}Calorías</Text>
+            </LinearGradient>
           </View>
         </View>
 
-        {/* Lista de entrenamientos */}
+        {/* Lista de Entrenamientos */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Entrenamientos Recientes</Text>
 
@@ -195,24 +230,30 @@ export default function HistorialScreen() {
                   activeOpacity={0.7}
                 >
                   <View style={styles.entrenamientoHeader}>
-                    <View style={styles.entrenamientoFecha}>
-                      <Text style={styles.entrenamientoDia}>
-                        {formatearFecha(entrenamiento.fecha)}
-                      </Text>
-                      <Text style={styles.entrenamientoHora}>
+                    <View style={styles.fechaContainer}>
+                      <View style={styles.fechaBadge}>
+                        <Text style={styles.fechaDia}>
+                          {formatearFecha(entrenamiento.fecha)}
+                        </Text>
+                      </View>
+                      <Text style={styles.fechaHora}>
                         {formatearHora(entrenamiento.fecha)}
                       </Text>
                     </View>
                     
-                    {entrenamiento.xp_ganada > 0 && (
-                      <View style={styles.xpBadge}>
-                        <Text style={styles.xpBadgeText}>+{entrenamiento.xp_ganada} XP</Text>
+                    <View style={styles.headerRight}>
+                      {entrenamiento.xp_ganada > 0 && (
+                        <View style={styles.xpBadge}>
+                          <Text style={styles.xpBadgeIcon}>⭐</Text>
+                          <Text style={styles.xpBadgeText}>+{entrenamiento.xp_ganada}</Text>
+                        </View>
+                      )}
+                      <View style={styles.expandButton}>
+                        <Text style={styles.expandIcon}>
+                          {isExpanded ? '▼' : '▶'}
+                        </Text>
                       </View>
-                    )}
-
-                    <Text style={styles.expandIcon}>
-                      {isExpanded ? '▼' : '▶'}
-                    </Text>
+                    </View>
                   </View>
 
                   <Text style={styles.entrenamientoNombre}>
@@ -220,24 +261,20 @@ export default function HistorialScreen() {
                   </Text>
 
                   <View style={styles.entrenamientoStats}>
-                    <View style={styles.entrenamientoStat}>
-                      <Text style={styles.entrenamientoStatIcon}>⏱️</Text>
-                      <Text style={styles.entrenamientoStatText}>
-                        {entrenamiento.duracion_minutos} min
-                      </Text>
+                    <View style={styles.statBadge}>
+                      <Text style={styles.statBadgeIcon}>⏱️</Text>
+                      <Text style={styles.statBadgeText}>{entrenamiento.duracion_minutos} min</Text>
                     </View>
 
-                    <View style={styles.entrenamientoStat}>
-                      <Text style={styles.entrenamientoStatIcon}>🔥</Text>
-                      <Text style={styles.entrenamientoStatText}>
-                        {entrenamiento.calorias_quemadas || 0} kcal
-                      </Text>
+                    <View style={[styles.statBadge, styles.statBadgeOrange]}>
+                      <Text style={styles.statBadgeIcon}>🔥</Text>
+                      <Text style={styles.statBadgeText}>{entrenamiento.calorias_quemadas || 0} kcal</Text>
                     </View>
 
                     {entrenamiento.ejercicios_completados && (
-                      <View style={styles.entrenamientoStat}>
-                        <Text style={styles.entrenamientoStatIcon}>💪</Text>
-                        <Text style={styles.entrenamientoStatText}>
+                      <View style={[styles.statBadge, styles.statBadgeGreen]}>
+                        <Text style={styles.statBadgeIcon}>💪</Text>
+                        <Text style={styles.statBadgeText}>
                           {Array.isArray(entrenamiento.ejercicios_completados) 
                             ? entrenamiento.ejercicios_completados.length 
                             : 0} ejercicios
@@ -246,32 +283,44 @@ export default function HistorialScreen() {
                     )}
                   </View>
 
-                  {/* Contenido expandido */}
+                  {/* Contenido Expandido */}
                   {isExpanded && (
                     <View style={styles.detallesContainer}>
                       <View style={styles.divider} />
                       
-                      <Text style={styles.detallesTitle}>📋 Detalles del Entrenamiento</Text>
+                      <Text style={styles.detallesTitle}>📊 Resumen Detallado</Text>
                       
-                      {/* Resumen */}
                       <View style={styles.resumenBox}>
                         <View style={styles.resumenRow}>
-                          <Text style={styles.resumenLabel}>Duración Total:</Text>
-                          <Text style={styles.resumenValue}>{entrenamiento.duracion_minutos} minutos</Text>
+                          <View style={styles.resumenItem}>
+                            <Text style={styles.resumenEmoji}>⏱️</Text>
+                            <View>
+                              <Text style={styles.resumenLabel}>Duración</Text>
+                              <Text style={styles.resumenValue}>{entrenamiento.duracion_minutos} min</Text>
+                            </View>
+                          </View>
+                          <View style={styles.resumenItem}>
+                            <Text style={styles.resumenEmoji}>🔥</Text>
+                            <View>
+                              <Text style={styles.resumenLabel}>Calorías</Text>
+                              <Text style={styles.resumenValue}>{entrenamiento.calorias_quemadas || 0} kcal</Text>
+                            </View>
+                          </View>
                         </View>
                         <View style={styles.resumenRow}>
-                          <Text style={styles.resumenLabel}>Calorías Quemadas:</Text>
-                          <Text style={styles.resumenValue}>{entrenamiento.calorias_quemadas || 0} kcal</Text>
-                        </View>
-                        <View style={styles.resumenRow}>
-                          <Text style={styles.resumenLabel}>XP Ganada:</Text>
-                          <Text style={[styles.resumenValue, { color: COLORS.success }]}>
-                            +{entrenamiento.xp_ganada} XP
-                          </Text>
+                          <View style={styles.resumenItem}>
+                            <Text style={styles.resumenEmoji}>⭐</Text>
+                            <View>
+                              <Text style={styles.resumenLabel}>XP Ganada</Text>
+                              <Text style={[styles.resumenValue, { color: COLORS.success }]}>
+                                +{entrenamiento.xp_ganada || 0} XP
+                              </Text>
+                            </View>
+                          </View>
                         </View>
                       </View>
 
-                      {/* Lista de ejercicios completados */}
+                      {/* Lista de Ejercicios */}
                       {entrenamiento.ejercicios_completados && 
                        Array.isArray(entrenamiento.ejercicios_completados) && 
                        entrenamiento.ejercicios_completados.length > 0 && (
@@ -282,31 +331,25 @@ export default function HistorialScreen() {
                           <View style={styles.ejerciciosList}>
                             {entrenamiento.ejercicios_completados.map((ejercicioId, index) => (
                               <View key={index} style={styles.ejercicioItem}>
-                                <View style={styles.ejercicioNumero}>
-                                  <Text style={styles.ejercicioNumeroText}>{index + 1}</Text>
+                                <View style={styles.ejercicioCheck}>
+                                  <Text style={styles.checkMark}>✓</Text>
                                 </View>
                                 <Text style={styles.ejercicioNombre}>
                                   Ejercicio {index + 1}
                                 </Text>
-                                <Text style={styles.checkMark}>✓</Text>
                               </View>
                             ))}
                           </View>
                         </>
                       )}
 
-                      {/* Notas si existen */}
+                      {/* Notas */}
                       {entrenamiento.notas && (
                         <View style={styles.notasBox}>
-                          <Text style={styles.notasTitle}>📝 Notas:</Text>
+                          <Text style={styles.notasTitle}>📝 Notas</Text>
                           <Text style={styles.notasText}>{entrenamiento.notas}</Text>
                         </View>
                       )}
-
-                      {/* Botón de compartir */}
-                      <TouchableOpacity style={styles.compartirButton}>
-                        <Text style={styles.compartirButtonText}>Compartir Logro 📤</Text>
-                      </TouchableOpacity>
                     </View>
                   )}
                 </TouchableOpacity>
@@ -325,103 +368,136 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  headerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 75,
+    backgroundColor: COLORS.background,
+    zIndex: 10,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: COLORS.background,
   },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: COLORS.textSecondary,
+  },
   scrollContent: {
-    paddingTop: 70,
+    paddingTop: 80,
     paddingHorizontal: 24,
     paddingBottom: 40,
+  },
+  headerContainer: {
+    marginBottom: 24,
   },
   title: {
     fontSize: 32,
     fontWeight: 'bold',
     color: COLORS.text,
-    marginBottom: 24,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 16,
-  },
-  statCard: {
-    flex: 1,
-    minWidth: '45%',
-    backgroundColor: COLORS.card,
-    borderRadius: 16,
-    padding: 16,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  statValue: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: COLORS.primary,
     marginBottom: 4,
   },
-  statLabel: {
-    fontSize: 12,
+  subtitle: {
+    fontSize: 16,
     color: COLORS.textSecondary,
-    textAlign: 'center',
   },
   xpCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.primary,
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 20,
+    padding: 20,
     marginBottom: 24,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   xpIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
   },
   xpIconText: {
-    fontSize: 24,
+    fontSize: 28,
   },
   xpInfo: {
     flex: 1,
   },
   xpLabel: {
-    fontSize: 12,
+    fontSize: 13,
     color: COLORS.white,
     opacity: 0.9,
     marginBottom: 4,
+    fontWeight: '500',
   },
   xpValue: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
     color: COLORS.white,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 28,
+  },
+  statCard: {
+    flex: 1,
+    minWidth: '47%',
+  },
+  statGradient: {
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  statEmoji: {
+    fontSize: 32,
+    marginBottom: 8,
+  },
+  statValue: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: 6,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    lineHeight: 16,
+    fontWeight: '500',
   },
   section: {
     marginBottom: 24,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     color: COLORS.text,
     marginBottom: 16,
   },
   emptyCard: {
     backgroundColor: COLORS.card,
-    borderRadius: 16,
-    padding: 32,
+    borderRadius: 20,
+    padding: 40,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: COLORS.border,
   },
   emptyIcon: {
-    fontSize: 48,
+    fontSize: 56,
     marginBottom: 16,
   },
   emptyTitle: {
@@ -434,73 +510,116 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.textSecondary,
     textAlign: 'center',
+    lineHeight: 20,
   },
   entrenamientoCard: {
     backgroundColor: COLORS.card,
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 20,
+    padding: 20,
     marginBottom: 12,
     borderWidth: 1,
     borderColor: COLORS.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   entrenamientoHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
-  entrenamientoFecha: {
+  fechaContainer: {
     flex: 1,
   },
-  entrenamientoDia: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: 2,
+  fechaBadge: {
+    backgroundColor: COLORS.primary + '20',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+    marginBottom: 6,
   },
-  entrenamientoHora: {
+  fechaDia: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.primary,
+  },
+  fechaHora: {
     fontSize: 12,
     color: COLORS.textSecondary,
+    fontWeight: '500',
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   xpBadge: {
-    backgroundColor: COLORS.success,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFD93D',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 12,
-    marginRight: 8,
+    gap: 4,
+  },
+  xpBadgeIcon: {
+    fontSize: 14,
   },
   xpBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: COLORS.white,
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  expandButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.primary + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   expandIcon: {
-    fontSize: 12,
+    fontSize: 10,
     color: COLORS.primary,
-    fontWeight: '600',
+    fontWeight: 'bold',
   },
   entrenamientoNombre: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
     color: COLORS.text,
-    marginBottom: 12,
+    marginBottom: 14,
   },
   entrenamientoStats: {
     flexDirection: 'row',
-    gap: 16,
+    flexWrap: 'wrap',
+    gap: 8,
   },
-  entrenamientoStat: {
+  statBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: COLORS.primary + '15',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    gap: 6,
   },
-  entrenamientoStatIcon: {
+  statBadgeOrange: {
+    backgroundColor: '#FF6B6B15',
+  },
+  statBadgeGreen: {
+    backgroundColor: '#4ECDC415',
+  },
+  statBadgeIcon: {
     fontSize: 14,
-    marginRight: 4,
   },
-  entrenamientoStatText: {
+  statBadgeText: {
     fontSize: 13,
-    color: COLORS.textSecondary,
-    fontWeight: '500',
+    color: COLORS.text,
+    fontWeight: '600',
   },
   detallesContainer: {
     marginTop: 16,
@@ -508,105 +627,99 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     backgroundColor: COLORS.border,
-    marginBottom: 16,
+    marginBottom: 20,
   },
   detallesTitle: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '700',
     color: COLORS.text,
-    marginBottom: 12,
+    marginBottom: 16,
   },
   resumenBox: {
     backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 20,
+    gap: 12,
   },
   resumenRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 6,
+    gap: 12,
+  },
+  resumenItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  resumenEmoji: {
+    fontSize: 24,
   },
   resumenLabel: {
-    fontSize: 13,
+    fontSize: 12,
     color: COLORS.textSecondary,
+    marginBottom: 4,
     fontWeight: '500',
   },
   resumenValue: {
-    fontSize: 13,
+    fontSize: 16,
     color: COLORS.text,
-    fontWeight: '600',
+    fontWeight: 'bold',
   },
   ejerciciosTitle: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
     color: COLORS.text,
     marginBottom: 12,
   },
   ejerciciosList: {
-    marginBottom: 16,
+    gap: 8,
+    marginBottom: 20,
   },
   ejercicioItem: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.surface,
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 8,
-  },
-  ejercicioNumero: {
-    width: 24,
-    height: 24,
     borderRadius: 12,
-    backgroundColor: COLORS.primary,
+    padding: 12,
+    gap: 12,
+  },
+  ejercicioCheck: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: COLORS.success,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 10,
   },
-  ejercicioNumeroText: {
-    fontSize: 12,
-    fontWeight: 'bold',
+  checkMark: {
+    fontSize: 14,
     color: COLORS.white,
+    fontWeight: 'bold',
   },
   ejercicioNombre: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 14,
     color: COLORS.text,
-    fontWeight: '500',
-  },
-  checkMark: {
-    fontSize: 16,
-    color: COLORS.success,
+    fontWeight: '600',
   },
   notasBox: {
-    backgroundColor: COLORS.primary + '15',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
-    borderLeftWidth: 3,
+    backgroundColor: COLORS.primary + '10',
+    borderRadius: 12,
+    padding: 16,
+    borderLeftWidth: 4,
     borderLeftColor: COLORS.primary,
   },
   notasTitle: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
     color: COLORS.text,
-    marginBottom: 6,
+    marginBottom: 8,
   },
   notasText: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    lineHeight: 18,
-  },
-  compartirButton: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 8,
-    padding: 12,
-    alignItems: 'center',
-  },
-  compartirButtonText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.white,
+    color: COLORS.textSecondary,
+    lineHeight: 20,
   },
   bottomSpacer: {
     height: 20,
