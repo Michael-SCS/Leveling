@@ -282,7 +282,7 @@ export default function DashboardScreen({ navigation }) {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <View>
-              <Text style={styles.sectionTitle}>Rutinas Para Ti</Text>
+              <Text style={styles.sectionTitle}>Rutinas para ti</Text>
               <Text style={styles.sectionSubtitle}>Basadas en tu perfil</Text>
             </View>
             <TouchableOpacity 

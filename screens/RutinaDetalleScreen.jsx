@@ -24,7 +24,6 @@ export default function RutinaDetalleScreen({ route, navigation }) {
   const [tiempoInicio, setTiempoInicio] = useState(null)
   const [tiempoTranscurrido, setTiempoTranscurrido] = useState(0)
   const [ejercicioActual, setEjercicioActual] = useState(null)
-  const [serieActual, setSerieActual] = useState(1)
   const [timerDescanso, setTimerDescanso] = useState(0)
   const [mostrarTimer, setMostrarTimer] = useState(false)
 
@@ -69,9 +68,11 @@ export default function RutinaDetalleScreen({ route, navigation }) {
         .single()
 
       if (rutinaError) throw rutinaError
+      
+      console.log('Rutina cargada:', rutinaData)
       setRutina(rutinaData)
 
-      // Cargar TODOS los ejercicios de la rutina (sin filtrar por día)
+      // Cargar ejercicios
       const { data: ejerciciosData, error: ejerciciosError } = await supabase
         .from('rutina_predefinida_ejercicios')
         .select(`
@@ -83,7 +84,10 @@ export default function RutinaDetalleScreen({ route, navigation }) {
         .order('orden', { ascending: true })
 
       if (ejerciciosError) throw ejerciciosError
+      
+      console.log('Ejercicios cargados:', ejerciciosData?.length || 0)
       setEjercicios(ejerciciosData || [])
+      
     } catch (error) {
       console.log('Error cargando detalle:', error)
       Alert.alert('Error', 'No se pudo cargar la rutina')
@@ -111,7 +115,7 @@ export default function RutinaDetalleScreen({ route, navigation }) {
 
   const iniciarDescanso = (ejercicio, segundos) => {
     setEjercicioActual(ejercicio)
-    setTimerDescanso(segundos)
+    setTimerDescanso(segundos || 60) // Default 60s si no hay tiempo especificado
     setMostrarTimer(true)
   }
 
@@ -119,17 +123,13 @@ export default function RutinaDetalleScreen({ route, navigation }) {
     const porcentajeCompletado = (ejerciciosCompletados.size / ejercicios.length) * 100
     let xpBase = 50
 
-    // Bonus por completar todo
     if (porcentajeCompletado === 100) xpBase += 50
-
-    // Bonus por tiempo (menos de 60 min)
     if (tiempoTranscurrido < 3600) xpBase += 20
 
     return Math.floor(xpBase * (porcentajeCompletado / 100))
   }
 
   const calcularCaloriasQuemadas = () => {
-    // Fórmula aproximada: 5 calorías por minuto de entrenamiento intenso
     const minutos = Math.floor(tiempoTranscurrido / 60)
     return minutos * 5
   }
@@ -145,10 +145,17 @@ export default function RutinaDetalleScreen({ route, navigation }) {
     const duracionMinutos = Math.floor(tiempoTranscurrido / 60)
 
     try {
-      // Obtener user_id
       const { data: { user } } = await supabase.auth.getUser()
 
-      // Guardar entrenamiento
+      console.log('Guardando entrenamiento:', {
+        user_id: user.id,
+        rutina_id: rutinaId,
+        duracion_minutos: duracionMinutos,
+        calorias_quemadas: calorias,
+        xp_ganada: xpGanada,
+        ejercicios_completados: Array.from(ejerciciosCompletados)
+      })
+
       const { data: entrenamiento, error: errorEntrenamiento } = await supabase
         .from('entrenamientos_completados')
         .insert([{
@@ -158,42 +165,57 @@ export default function RutinaDetalleScreen({ route, navigation }) {
           calorias_quemadas: calorias,
           xp_ganada: xpGanada,
           ejercicios_completados: Array.from(ejerciciosCompletados),
+          fecha: new Date().toISOString().split('T')[0] // Asegurar fecha
         }])
         .select()
         .single()
 
-      if (errorEntrenamiento) throw errorEntrenamiento
-
-      // Agregar XP al usuario
-      const { data: nivelData, error: errorXP } = await supabase
-        .rpc('agregar_xp', {
-          usuario_id: user.id,
-          xp_ganada: xpGanada
-        })
-
-      if (errorXP) console.log('Error agregando XP:', errorXP)
-
-      // Mostrar resumen
-      const subioNivel = nivelData?.[0]?.subio_nivel || false
-      const nuevoNivel = nivelData?.[0]?.nuevo_nivel || 0
-
-      let mensaje = `🔥 ¡Entrenamiento completado!\n\n`
-      mensaje += `⏱️ Duración: ${duracionMinutos} min\n`
-      mensaje += `💪 Ejercicios: ${ejerciciosCompletados.size}/${ejercicios.length}\n`
-      mensaje += `🔥 Calorías: ~${calorias} kcal\n`
-      mensaje += `⭐ XP ganada: +${xpGanada}\n`
-
-      if (subioNivel) {
-        mensaje += `\n🎉 ¡SUBISTE AL NIVEL ${nuevoNivel}!`
+      if (errorEntrenamiento) {
+        console.log('Error guardando entrenamiento:', errorEntrenamiento)
+        throw errorEntrenamiento
       }
 
-      Alert.alert('¡Felicidades!', mensaje, [
-        { text: 'Genial', onPress: () => navigation.goBack() }
-      ])
+      console.log('Entrenamiento guardado exitosamente:', entrenamiento)
+
+      // Intentar agregar XP
+      try {
+        const { data: nivelData, error: errorXP } = await supabase
+          .rpc('agregar_xp', {
+            usuario_id: user.id,
+            xp_ganada: xpGanada
+          })
+
+        if (errorXP) console.log('Error agregando XP (puede que no exista la función):', errorXP)
+        
+        const subioNivel = nivelData?.[0]?.subio_nivel || false
+        const nuevoNivel = nivelData?.[0]?.nuevo_nivel || 0
+
+        let mensaje = `🔥 ¡Entrenamiento completado!\n\n`
+        mensaje += `⏱️ Duración: ${duracionMinutos} min\n`
+        mensaje += `💪 Ejercicios: ${ejerciciosCompletados.size}/${ejercicios.length}\n`
+        mensaje += `🔥 Calorías: ~${calorias} kcal\n`
+        mensaje += `⭐ XP ganada: +${xpGanada}\n`
+
+        if (subioNivel) {
+          mensaje += `\n🎉 ¡SUBISTE AL NIVEL ${nuevoNivel}!`
+        }
+
+        Alert.alert('¡Felicidades!', mensaje, [
+          { text: 'Genial', onPress: () => navigation.goBack() }
+        ])
+      } catch (xpError) {
+        console.log('Error con sistema XP:', xpError)
+        // Mostrar alerta de éxito sin XP
+        Alert.alert(
+          '¡Felicidades!', 
+          `🔥 ¡Entrenamiento completado!\n\n⏱️ Duración: ${duracionMinutos} min\n💪 Ejercicios: ${ejerciciosCompletados.size}/${ejercicios.length}\n🔥 Calorías: ~${calorias} kcal`,
+          [{ text: 'Genial', onPress: () => navigation.goBack() }]
+        )
+      }
 
     } catch (error) {
       console.log('Error guardando entrenamiento:', error)
-      Alert.alert('Error', 'No se pudo guardar el entrenamiento')
+      Alert.alert('Error', 'No se pudo guardar el entrenamiento. Revisa tu conexión.')
     }
   }
 
@@ -217,53 +239,83 @@ export default function RutinaDetalleScreen({ route, navigation }) {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <LinearGradient
-        colors={[COLORS.background, COLORS.surface]}
-        style={styles.header}
-      >
-        <View style={styles.headerTop}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => {
-              if (entrenandoActivo) {
-                Alert.alert(
-                  'Entrenamiento en curso',
-                  '¿Quieres salir sin finalizar?',
-                  [
-                    { text: 'Cancelar', style: 'cancel' },
-                    { text: 'Salir', onPress: () => navigation.goBack(), style: 'destructive' }
-                  ]
-                )
-              } else {
-                navigation.goBack()
-              }
-            }}
-          >
-            <Text style={styles.backButtonText}>←</Text>
-          </TouchableOpacity>
+      {/* Header con imagen de portada */}
+      <View style={styles.headerImageContainer}>
+        {rutina?.imagen_url && (
+          <Image 
+            source={{ uri: rutina.imagen_url }} 
+            style={styles.headerImage}
+            resizeMode="cover"
+          />
+        )}
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.8)', COLORS.background]}
+          style={styles.headerGradient}
+        >
+          <View style={styles.headerTop}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => {
+                if (entrenandoActivo) {
+                  Alert.alert(
+                    'Entrenamiento en curso',
+                    '¿Quieres salir sin finalizar?',
+                    [
+                      { text: 'Cancelar', style: 'cancel' },
+                      { text: 'Salir', onPress: () => navigation.goBack(), style: 'destructive' }
+                    ]
+                  )
+                } else {
+                  navigation.goBack()
+                }
+              }}
+            >
+              <Text style={styles.backButtonText}>←</Text>
+            </TouchableOpacity>
+
+            {entrenandoActivo && (
+              <View style={styles.timerContainer}>
+                <Text style={styles.timerIcon}>⏱️</Text>
+                <Text style={styles.timerText}>{formatearTiempo(tiempoTranscurrido)}</Text>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.headerContent}>
+            <View style={styles.rutinaBadge}>
+              <Text style={styles.rutinaBadgeText}>{rutina?.nivel}</Text>
+            </View>
+            <Text style={styles.headerTitle}>{rutina?.nombre}</Text>
+            <Text style={styles.headerDescripcion}>{rutina?.descripcion}</Text>
+            
+            <View style={styles.rutinaMeta}>
+              <View style={styles.metaItem}>
+                <Text style={styles.metaIcon}>📅</Text>
+                <Text style={styles.metaText}>{rutina?.dias_semana} días</Text>
+              </View>
+              <View style={styles.metaItem}>
+                <Text style={styles.metaIcon}>⏱️</Text>
+                <Text style={styles.metaText}>{rutina?.duracion_minutos} min</Text>
+              </View>
+              <View style={styles.metaItem}>
+                <Text style={styles.metaIcon}>📍</Text>
+                <Text style={styles.metaText}>{rutina?.lugar}</Text>
+              </View>
+            </View>
+          </View>
 
           {entrenandoActivo && (
-            <View style={styles.timerContainer}>
-              <Text style={styles.timerIcon}>⏱️</Text>
-              <Text style={styles.timerText}>{formatearTiempo(tiempoTranscurrido)}</Text>
+            <View style={styles.progresoContainer}>
+              <View style={styles.progresoBar}>
+                <View style={[styles.progresoFill, { width: `${progresoEjercicios}%` }]} />
+              </View>
+              <Text style={styles.progresoText}>
+                {ejerciciosCompletados.size}/{ejercicios.length} ejercicios
+              </Text>
             </View>
           )}
-        </View>
-
-        <Text style={styles.headerTitle}>{rutina?.nombre}</Text>
-
-        {entrenandoActivo && (
-          <View style={styles.progresoContainer}>
-            <View style={styles.progresoBar}>
-              <View style={[styles.progresoFill, { width: `${progresoEjercicios}%` }]} />
-            </View>
-            <Text style={styles.progresoText}>
-              {ejerciciosCompletados.size}/{ejercicios.length} ejercicios
-            </Text>
-          </View>
-        )}
-      </LinearGradient>
+        </LinearGradient>
+      </View>
 
       {/* Lista de ejercicios */}
       <ScrollView
@@ -271,96 +323,106 @@ export default function RutinaDetalleScreen({ route, navigation }) {
         contentContainerStyle={styles.ejerciciosContent}
         showsVerticalScrollIndicator={false}
       >
-        {ejercicios.map((item, index) => {
-          const completado = ejerciciosCompletados.has(item.id)
+        {ejercicios.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyIcon}>💪</Text>
+            <Text style={styles.emptyTitle}>No hay ejercicios</Text>
+            <Text style={styles.emptyText}>Esta rutina aún no tiene ejercicios configurados</Text>
+          </View>
+        ) : (
+          ejercicios.map((item, index) => {
+            const completado = ejerciciosCompletados.has(item.id)
 
-          return (
-            <View
-              key={item.id}
-              style={[
-                styles.ejercicioCard,
-                completado && styles.ejercicioCardCompletado
-              ]}
-            >
-              <View style={styles.ejercicioHeader}>
-                <View style={styles.ejercicioNumero}>
-                  <Text style={styles.ejercicioNumeroText}>{index + 1}</Text>
+            return (
+              <View
+                key={item.id}
+                style={[
+                  styles.ejercicioCard,
+                  completado && styles.ejercicioCardCompletado
+                ]}
+              >
+                <View style={styles.ejercicioHeader}>
+                  <View style={styles.ejercicioNumero}>
+                    <Text style={styles.ejercicioNumeroText}>{index + 1}</Text>
+                  </View>
+
+                  <View style={styles.ejercicioInfo}>
+                    <Text style={styles.ejercicioNombre}>
+                      {item.ejercicios?.nombre || 'Ejercicio sin nombre'}
+                    </Text>
+                    <Text style={styles.ejercicioCategoria}>
+                      {item.ejercicios?.categoria || 'Sin categoría'}
+                    </Text>
+                    <Text style={styles.ejercicioSeries}>
+                      {item.series} series × {item.repeticiones} reps
+                    </Text>
+                  </View>
+
+                  {entrenandoActivo && (
+                    <TouchableOpacity
+                      style={[
+                        styles.checkButton,
+                        completado && styles.checkButtonActive
+                      ]}
+                      onPress={() => toggleEjercicioCompletado(item.id)}
+                    >
+                      <Text style={styles.checkIcon}>
+                        {completado ? '✓' : '○'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
 
-                <View style={styles.ejercicioInfo}>
-                  <Text style={styles.ejercicioNombre}>
-                    {item.ejercicios.nombre}
-                  </Text>
-                  <Text style={styles.ejercicioCategoria}>
-                    {item.ejercicios.categoria}
-                  </Text>
-                  <Text style={styles.ejercicioSeries}>
-                    {item.series} series × {item.repeticiones} reps
-                  </Text>
-                </View>
+                {/* Instrucciones */}
+                {item.ejercicios?.instrucciones && (
+                  <View style={styles.instruccionesBox}>
+                    <Text style={styles.instruccionesTitle}>📋 Cómo hacerlo</Text>
+                    <Text style={styles.instruccionesText}>
+                      {item.ejercicios.instrucciones}
+                    </Text>
+                  </View>
+                )}
 
-                {entrenandoActivo && (
+                {/* Botón de descanso */}
+                {entrenandoActivo && !completado && (
                   <TouchableOpacity
-                    style={[
-                      styles.checkButton,
-                      completado && styles.checkButtonActive
-                    ]}
-                    onPress={() => toggleEjercicioCompletado(item.id)}
+                    style={styles.descansoButton}
+                    onPress={() => iniciarDescanso(item, item.descanso_segundos)}
                   >
-                    <Text style={styles.checkIcon}>
-                      {completado ? '✓' : '○'}
+                    <Text style={styles.descansoButtonText}>
+                      ⏱️ Descanso ({item.descanso_segundos || 60}s)
                     </Text>
                   </TouchableOpacity>
                 )}
               </View>
-
-              {/* Instrucciones */}
-              {item.ejercicios.instrucciones && (
-                <View style={styles.instruccionesBox}>
-                  <Text style={styles.instruccionesTitle}>📋 Cómo hacerlo</Text>
-                  <Text style={styles.instruccionesText}>
-                    {item.ejercicios.instrucciones}
-                  </Text>
-                </View>
-              )}
-
-              {/* Botón de descanso */}
-              {entrenandoActivo && !completado && (
-                <TouchableOpacity
-                  style={styles.descansoButton}
-                  onPress={() => iniciarDescanso(item, item.descanso_segundos)}
-                >
-                  <Text style={styles.descansoButtonText}>
-                    ⏱️ Descanso ({item.descanso_segundos}s)
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          )
-        })}
+            )
+          })
+        )}
 
         {/* Botón de acción */}
-        {!entrenandoActivo ? (
-          <TouchableOpacity
-            style={styles.iniciarButton}
-            onPress={handleIniciarEntrenamiento}
-          >
-            <Text style={styles.iniciarButtonText}>Iniciar Entrenamiento</Text>
-            <Text style={styles.iniciarButtonIcon}>🔥</Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            style={[
-              styles.iniciarButton,
-              styles.finalizarButton,
-              ejerciciosCompletados.size === 0 && styles.buttonDisabled
-            ]}
-            onPress={handleFinalizarEntrenamiento}
-            disabled={ejerciciosCompletados.size === 0}
-          >
-            <Text style={styles.iniciarButtonText}>Finalizar Entrenamiento</Text>
-            <Text style={styles.iniciarButtonIcon}>✓</Text>
-          </TouchableOpacity>
+        {ejercicios.length > 0 && (
+          !entrenandoActivo ? (
+            <TouchableOpacity
+              style={styles.iniciarButton}
+              onPress={handleIniciarEntrenamiento}
+            >
+              <Text style={styles.iniciarButtonText}>Iniciar Entrenamiento</Text>
+              <Text style={styles.iniciarButtonIcon}>🔥</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[
+                styles.iniciarButton,
+                styles.finalizarButton,
+                ejerciciosCompletados.size === 0 && styles.buttonDisabled
+              ]}
+              onPress={handleFinalizarEntrenamiento}
+              disabled={ejerciciosCompletados.size === 0}
+            >
+              <Text style={styles.iniciarButtonText}>Finalizar Entrenamiento</Text>
+              <Text style={styles.iniciarButtonIcon}>✓</Text>
+            </TouchableOpacity>
+          )
         )}
 
         <View style={styles.bottomSpacer} />
@@ -377,7 +439,7 @@ export default function RutinaDetalleScreen({ route, navigation }) {
             <Text style={styles.timerModalTitle}>Descanso</Text>
             <Text style={styles.timerModalTiempo}>{formatearTiempo(timerDescanso)}</Text>
             <Text style={styles.timerModalEjercicio}>
-              {ejercicioActual?.ejercicios?.nombre}
+              {ejercicioActual?.ejercicios?.nombre || 'Siguiente ejercicio'}
             </Text>
             <TouchableOpacity
               style={styles.timerModalButton}
@@ -403,26 +465,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: COLORS.background,
   },
-  header: {
+  headerImageContainer: {
+    height: 380,
+    position: 'relative',
+  },
+  headerImage: {
+    width: '100%',
+    height: '100%',
+    position: 'absolute',
+  },
+  headerGradient: {
+    flex: 1,
     paddingTop: 60,
     paddingHorizontal: 20,
     paddingBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    justifyContent: 'space-between',
   },
   headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.surface,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
   },
   backButtonText: {
     color: COLORS.white,
@@ -446,18 +518,67 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-  headerTitle: {
-    fontSize: 24,
+  headerContent: {
+    marginTop: 'auto',
+  },
+  rutinaBadge: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
+    marginBottom: 12,
+  },
+  rutinaBadgeText: {
+    color: COLORS.white,
+    fontSize: 12,
     fontWeight: 'bold',
-    color: COLORS.text,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: COLORS.white,
+    marginBottom: 8,
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+  },
+  headerDescripcion: {
+    fontSize: 15,
+    color: COLORS.white,
+    opacity: 0.95,
+    marginBottom: 16,
+    lineHeight: 22,
+  },
+  rutinaMeta: {
+    flexDirection: 'row',
+    gap: 16,
+    flexWrap: 'wrap',
     marginBottom: 16,
   },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  metaIcon: {
+    fontSize: 14,
+    marginRight: 6,
+  },
+  metaText: {
+    fontSize: 13,
+    color: COLORS.white,
+    fontWeight: '600',
+  },
   progresoContainer: {
-    marginTop: 8,
+    marginTop: 12,
   },
   progresoBar: {
     height: 8,
-    backgroundColor: COLORS.surface,
+    backgroundColor: 'rgba(255,255,255,0.2)',
     borderRadius: 4,
     overflow: 'hidden',
     marginBottom: 8,
@@ -469,14 +590,35 @@ const styles = StyleSheet.create({
   },
   progresoText: {
     fontSize: 12,
-    color: COLORS.textSecondary,
+    color: COLORS.white,
     fontWeight: '600',
+    opacity: 0.9,
   },
   ejerciciosScroll: {
     flex: 1,
   },
   ejerciciosContent: {
     padding: 20,
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  emptyIcon: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: 8,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
   },
   ejercicioCard: {
     backgroundColor: COLORS.card,
