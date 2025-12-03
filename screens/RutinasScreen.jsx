@@ -1,21 +1,20 @@
-import React, { useState, useEffect } from 'react'
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView,
-  TouchableOpacity,
-  Image,
-  ActivityIndicator
-} from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
-import { supabase } from '../lib/supabase'
+import { useEffect, useState } from 'react'
+import {
+  ActivityIndicator,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native'
 import { COLORS } from '../constants/colors'
+import { supabase } from '../lib/supabase'
 
 export default function RutinasScreen({ navigation }) {
   const [loading, setLoading] = useState(true)
   const [rutinas, setRutinas] = useState([])
-  const [userInfo, setUserInfo] = useState(null)
   const [filtroNivel, setFiltroNivel] = useState('Todas')
 
   useEffect(() => {
@@ -23,33 +22,21 @@ export default function RutinasScreen({ navigation }) {
   }, [])
 
   const loadRutinas = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      
-      const { data: info } = await supabase
-        .from('usuarios_info')
-        .select('*')
-        .eq('user_id', user.id)
-        .single()
+    try {
+      const { data, error } = await supabase
+        .from('rutinas_predefinidas') // <-- ¡CORREGIDO!
+        .select('*')
+        .order('nivel', { ascending: true })
 
-      setUserInfo(info)
+      if (error) throw error
 
-      const { data, error } = await supabase
-        .from('rutinas_predefinidas')
-        .select('*')
-        .eq('objetivo', info.objetivo)
-        .order('nivel', { ascending: true })
-
-      if (error) throw error
-
-      console.log(`Total rutinas para ${info.objetivo}:`, data?.length || 0)
-      setRutinas(data || [])
-    } catch (error) {
-      console.log('Error cargando rutinas:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
+      setRutinas(data || [])
+    } catch (error) {
+      console.log('Error cargando rutinas:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleRutinaPress = (rutina) => {
     navigation.navigate('RutinaDetalle', { rutinaId: rutina.id })
@@ -64,13 +51,10 @@ export default function RutinasScreen({ navigation }) {
     }
   }
 
-  const rutinasFiltradas = filtroNivel === 'Todas' 
-    ? rutinas 
-    : rutinas.filter(r => r.nivel === filtroNivel)
-
-  const contarPorNivel = (nivel) => {
-    return rutinas.filter(r => r.nivel === nivel).length
-  }
+  const rutinasFiltradas =
+    filtroNivel === 'Todas'
+      ? rutinas
+      : rutinas.filter((r) => r.nivel === filtroNivel)
 
   if (loading) {
     return (
@@ -89,197 +73,90 @@ export default function RutinasScreen({ navigation }) {
       colors={[COLORS.background, COLORS.surface]}
       style={styles.container}
     >
-      {/* Header fijo con fondo */}
       <View style={styles.headerOverlay} />
       
       <ScrollView 
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
         <View style={styles.headerContainer}>
           <Text style={styles.title}>Rutinas</Text>
-          <View style={styles.objetivoTag}>
-            <Text style={styles.objetivoIcon}>🎯</Text>
-            <Text style={styles.objetivoText}>{userInfo?.objetivo}</Text>
-          </View>
+          <Text style={styles.subtitle}>Escoge una rutina por nivel</Text>
         </View>
 
-        {/* Estadísticas - Solo 2 cards */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{rutinas.length}</Text>
-            <Text style={styles.statLabel}>Total Rutinas</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{userInfo?.dias_semana}</Text>
-            <Text style={styles.statLabel}>Días/Semana</Text>
-          </View>
-        </View>
-
-        {/* Filtros de Nivel */}
-        <View style={styles.filterContainer}>
-          <Text style={styles.filterTitle}>Filtrar por nivel</Text>
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.filterScroll}
-          >
+        {/* Filtros */}
+        <ScrollView 
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{ paddingLeft: 24, marginBottom: 20 }}
+        >
+          {['Todas','Principiante','Intermedio','Avanzado'].map((nivel) => (
             <TouchableOpacity
+              key={nivel}
               style={[
                 styles.filterChip,
-                filtroNivel === 'Todas' && styles.filterChipActive
+                filtroNivel === nivel && styles.filterChipActive
               ]}
-              onPress={() => setFiltroNivel('Todas')}
+              onPress={() => setFiltroNivel(nivel)}
             >
               <Text style={[
                 styles.filterChipText,
-                filtroNivel === 'Todas' && styles.filterChipTextActive
+                filtroNivel === nivel && styles.filterChipTextActive
               ]}>
-                Todas ({rutinas.length})
+                {nivel}
               </Text>
             </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.filterChip,
-                filtroNivel === 'Principiante' && styles.filterChipActive,
-                { borderColor: '#4ECDC4' }
-              ]}
-              onPress={() => setFiltroNivel('Principiante')}
-            >
-              <Text style={[
-                styles.filterChipText,
-                filtroNivel === 'Principiante' && styles.filterChipTextActive
-              ]}>
-                Principiante ({contarPorNivel('Principiante')})
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.filterChip,
-                filtroNivel === 'Intermedio' && styles.filterChipActive,
-                { borderColor: '#FFD93D' }
-              ]}
-              onPress={() => setFiltroNivel('Intermedio')}
-            >
-              <Text style={[
-                styles.filterChipText,
-                filtroNivel === 'Intermedio' && styles.filterChipTextActive
-              ]}>
-                Intermedio ({contarPorNivel('Intermedio')})
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.filterChip,
-                filtroNivel === 'Avanzado' && styles.filterChipActive,
-                { borderColor: '#FF6B6B' }
-              ]}
-              onPress={() => setFiltroNivel('Avanzado')}
-            >
-              <Text style={[
-                styles.filterChipText,
-                filtroNivel === 'Avanzado' && styles.filterChipTextActive
-              ]}>
-                Avanzado ({contarPorNivel('Avanzado')})
-              </Text>
-            </TouchableOpacity>
-          </ScrollView>
-        </View>
+          ))}
+        </ScrollView>
 
         {/* Lista de Rutinas */}
-        <View style={styles.rutinasContainer}>
-          <Text style={styles.rutinasTitle}>
-            {filtroNivel === 'Todas' 
-              ? `Todas las rutinas (${rutinasFiltradas.length})`
-              : `Nivel ${filtroNivel} (${rutinasFiltradas.length})`
-            }
-          </Text>
+        <View style={{ paddingHorizontal: 24 }}>
+          {rutinasFiltradas.map((rutina) => (
+            <TouchableOpacity
+              key={rutina.id}
+              style={styles.rutinaCard}
+              onPress={() => handleRutinaPress(rutina)}
+              activeOpacity={0.85}
+            >
+              <Image 
+                source={{ uri: rutina.imagen_url }}
+                style={styles.rutinaImage}
+              />
 
-          {rutinasFiltradas.length > 0 ? (
-            rutinasFiltradas.map((rutina) => (
-              <TouchableOpacity 
-                key={rutina.id}
-                style={styles.rutinaCard}
-                activeOpacity={0.9}
-                onPress={() => handleRutinaPress(rutina)}
+              <LinearGradient
+                colors={['transparent', 'rgba(0,0,0,0.95)']}
+                style={styles.rutinaGradient}
               >
-                {rutina.imagen_url && (
-                  <Image 
-                    source={{ uri: rutina.imagen_url }} 
-                    style={styles.rutinaImage}
-                    resizeMode="cover"
-                  />
-                )}
-                <LinearGradient
-                  colors={['transparent', 'rgba(0,0,0,0.9)']}
-                  style={styles.rutinaGradient}
-                >
-                  <View style={styles.rutinaTop}>
-                    <View style={[
-                      styles.rutinaBadge,
-                      { backgroundColor: getNivelColor(rutina.nivel) }
-                    ]}>
-                      <Text style={styles.rutinaBadgeText}>{rutina.nivel}</Text>
-                    </View>
+                <View style={styles.rutinaTop}>
+                  <View style={[
+                    styles.rutinaBadge,
+                    { backgroundColor: getNivelColor(rutina.nivel) }
+                  ]}>
+                    <Text style={styles.rutinaBadgeText}>{rutina.nivel}</Text>
                   </View>
-                  
-                  <View style={styles.rutinaContent}>
-                    <Text style={styles.rutinaNombre}>{rutina.nombre}</Text>
-                    <Text style={styles.rutinaDescripcion} numberOfLines={2}>
-                      {rutina.descripcion}
-                    </Text>
-                    <View style={styles.rutinaInfo}>
-                      <View style={styles.infoItem}>
-                        <Text style={styles.infoIcon}>📅</Text>
-                        <Text style={styles.infoText}>{rutina.dias_semana} días</Text>
-                      </View>
-                      <View style={styles.infoItem}>
-                        <Text style={styles.infoIcon}>⏱️</Text>
-                        <Text style={styles.infoText}>{rutina.duracion_minutos} min</Text>
-                      </View>
-                      <View style={styles.infoItem}>
-                        <Text style={styles.infoIcon}>📍</Text>
-                        <Text style={styles.infoText}>{rutina.lugar}</Text>
-                      </View>
-                    </View>
-                    
-                    <View style={styles.verDetallesButton}>
-                      <Text style={styles.verDetallesText}>Ver Detalles</Text>
-                      <Text style={styles.verDetallesIcon}>→</Text>
-                    </View>
+                </View>
+
+                <View style={styles.rutinaContent}>
+                  <Text style={styles.rutinaNombre}>{rutina.nombre}</Text>
+                  <Text style={styles.rutinaDescripcion} numberOfLines={2}>
+                    {rutina.descripcion}
+                  </Text>
+
+                  <View style={styles.verDetallesButton}>
+                    <Text style={styles.verDetallesText}>Ver ejercicios</Text>
+                    <Text style={styles.verDetallesIcon}>→</Text>
                   </View>
-                </LinearGradient>
-              </TouchableOpacity>
-            ))
-          ) : (
-            <View style={styles.emptyCard}>
-              <Text style={styles.emptyIcon}>🔍</Text>
-              <Text style={styles.emptyTitle}>
-                No hay rutinas de nivel {filtroNivel}
-              </Text>
-              <Text style={styles.emptyText}>
-                Intenta con otro filtro o explora todas las rutinas
-              </Text>
-              <TouchableOpacity 
-                style={styles.resetFilterButton}
-                onPress={() => setFiltroNivel('Todas')}
-              >
-                <Text style={styles.resetFilterText}>Ver Todas</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
+          ))}
         </View>
 
-        {rutinas.length === 0 && (
+        {rutinasFiltradas.length === 0 && (
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyIcon}>📋</Text>
-            <Text style={styles.emptyTitle}>No hay rutinas disponibles</Text>
+            <Text style={styles.emptyTitle}>No hay rutinas</Text>
             <Text style={styles.emptyText}>
-              Pronto habrá más rutinas para tu objetivo
+              Cambia el filtro para ver otras rutinas disponibles.
             </Text>
           </View>
         )}
@@ -287,6 +164,7 @@ export default function RutinasScreen({ navigation }) {
     </LinearGradient>
   )
 }
+
 
 const styles = StyleSheet.create({
   container: {

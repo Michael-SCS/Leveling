@@ -1,17 +1,16 @@
-import React, { useState, useEffect } from 'react'
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView,
-  TouchableOpacity,
-  Alert,
-  ActivityIndicator,
-  Platform,
-} from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
-import { supabase } from '../lib/supabase'
+import { useEffect, useState } from 'react'
+import {
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native'
 import { COLORS } from '../constants/colors'
+import { supabase } from '../lib/supabase'
 
 const InfoCard = ({ label, value, emoji }) => (
   <View style={styles.infoRow}>

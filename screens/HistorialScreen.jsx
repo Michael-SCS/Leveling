@@ -1,16 +1,29 @@
-import React, { useState, useEffect } from 'react'
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-  RefreshControl
-} from 'react-native'
+import { MaterialIcons } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
-import { supabase } from '../lib/supabase'
+import { useEffect, useState } from 'react'
+import {
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native'
 import { COLORS } from '../constants/colors'
+import { supabase } from '../lib/supabase'
+
+// Función para formatear minutos totales a "Xh Ym"
+const formatTotalMinutes = (totalMinutos) => {
+  if (totalMinutos === 0) return '0m'
+  const hours = Math.floor(totalMinutos / 60)
+  const minutes = totalMinutos % 60
+
+  if (hours > 0) {
+    return `${hours}h ${minutes > 0 ? `${minutes}m` : ''}`.trim()
+  }
+  return `${minutes}m`
+}
 
 export default function HistorialScreen() {
   const [loading, setLoading] = useState(true)
@@ -36,29 +49,73 @@ export default function HistorialScreen() {
       const { data: entrenamientosData, error } = await supabase
         .from('entrenamientos_completados')
         .select(`
-          *,
-          rutinas_predefinidas (
-            nombre,
-            imagen_url
-          )
-        `)
+        id,
+        fecha,
+        duracion_minutos,
+        calorias_quemadas,
+        xp_ganada,
+        ejercicios_completados,
+        rutina_id,
+        rutinas_predefinidas (
+          nombre,
+          imagen_url
+        )
+      `)
         .eq('user_id', user.id)
         .order('fecha', { ascending: false })
         .limit(50)
 
       if (error) throw error
 
+      // 👇 NUEVA LÓGICA: Obtener nombres de todos los ejercicios
+      if (entrenamientosData && entrenamientosData.length > 0) {
+        // Recolectar todos los IDs únicos de ejercicios
+        const todosLosIds = new Set()
+        entrenamientosData.forEach(entrenamiento => {
+          if (Array.isArray(entrenamiento.ejercicios_completados)) {
+            entrenamiento.ejercicios_completados.forEach(id => todosLosIds.add(id))
+          }
+        })
+
+        // Obtener los datos de ejercicios de una sola vez
+        if (todosLosIds.size > 0) {
+          const { data: ejerciciosData } = await supabase
+            .from('ejercicios')
+            .select('id, nombre')
+            .in('id', Array.from(todosLosIds))
+
+          // Crear mapa de ID -> nombre
+          const ejerciciosMap = {}
+          ejerciciosData?.forEach(ej => {
+            ejerciciosMap[ej.id] = ej.nombre
+          })
+
+          // Agregar los nombres a cada entrenamiento
+          entrenamientosData.forEach(entrenamiento => {
+            entrenamiento.ejerciciosConNombres = entrenamiento.ejercicios_completados?.map(id => ({
+              id,
+              nombre: ejerciciosMap[id] || 'Ejercicio desconocido'
+            })) || []
+          })
+        }
+      }
+
       setEntrenamientos(entrenamientosData || [])
 
+      // ... resto del código de estadísticas sin cambios
       const total = entrenamientosData?.length || 0
       const minutos = entrenamientosData?.reduce((sum, e) => sum + (e.duracion_minutos || 0), 0) || 0
       const calorias = entrenamientosData?.reduce((sum, e) => sum + (e.calorias_quemadas || 0), 0) || 0
       const xp = entrenamientosData?.reduce((sum, e) => sum + (e.xp_ganada || 0), 0) || 0
 
-      const haceUnaSemana = new Date()
-      haceUnaSemana.setDate(haceUnaSemana.getDate() - 7)
-      const semana = entrenamientosData?.filter(e => 
-        new Date(e.fecha) >= haceUnaSemana
+      const hoy = new Date()
+      const dayOfWeek = hoy.getDay()
+      const diff = hoy.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1)
+      const inicioSemana = new Date(hoy.setDate(diff))
+      inicioSemana.setHours(0, 0, 0, 0)
+
+      const semana = entrenamientosData?.filter(e =>
+        new Date(e.fecha) >= inicioSemana
       ).length || 0
 
       setEstadisticas({
@@ -85,26 +142,30 @@ export default function HistorialScreen() {
   const formatearFecha = (fecha) => {
     const date = new Date(fecha)
     const hoy = new Date()
+    hoy.setHours(0, 0, 0, 0)
     const ayer = new Date(hoy)
     ayer.setDate(ayer.getDate() - 1)
 
-    if (date.toDateString() === hoy.toDateString()) {
+    const fechaEntrenamiento = new Date(date)
+    fechaEntrenamiento.setHours(0, 0, 0, 0)
+
+    if (fechaEntrenamiento.getTime() === hoy.getTime()) {
       return 'Hoy'
-    } else if (date.toDateString() === ayer.toDateString()) {
+    } else if (fechaEntrenamiento.getTime() === ayer.getTime()) {
       return 'Ayer'
     } else {
-      return date.toLocaleDateString('es-ES', { 
-        day: 'numeric', 
+      return date.toLocaleDateString('es-ES', {
+        day: 'numeric',
         month: 'short',
-        year: date.getFullYear() !== hoy.getFullYear() ? 'numeric' : undefined
-      })
+        year: date.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
+      }).replace('.', '').toUpperCase()
     }
   }
 
   const formatearHora = (fecha) => {
-    return new Date(fecha).toLocaleTimeString('es-ES', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
+    return new Date(fecha).toLocaleTimeString('es-ES', {
+      hour: '2-digit',
+      minute: '2-digit'
     })
   }
 
@@ -122,15 +183,15 @@ export default function HistorialScreen() {
   }
 
   return (
-    
+
     <LinearGradient
       colors={[COLORS.background, COLORS.surface]}
       style={styles.container}
     >
-    {/* Header fijo con fondo */}
+      {/* Header fijo con fondo */}
       <View style={styles.headerOverlay} />
-      
-      <ScrollView 
+
+      <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -140,10 +201,10 @@ export default function HistorialScreen() {
         {/* Header Mejorado */}
         <View style={styles.headerContainer}>
           <Text style={styles.title}>Historial</Text>
-          <Text style={styles.subtitle}>Revisa tus logros 🏆</Text>
+          <Text style={styles.subtitle}>Revisa y celebra tus logros 🏆</Text>
         </View>
 
-        {/* Estadísticas Destacadas */}
+        {/* Sección de XP Total */}
         <LinearGradient
           colors={[COLORS.primary, COLORS.primary + 'dd']}
           start={{ x: 0, y: 0 }}
@@ -151,57 +212,61 @@ export default function HistorialScreen() {
           style={styles.xpCard}
         >
           <View style={styles.xpIcon}>
-            <Text style={styles.xpIconText}>⭐</Text>
+            <Text style={styles.xpIconText}>✨</Text>
           </View>
           <View style={styles.xpInfo}>
-            <Text style={styles.xpLabel}>XP Total Acumulada</Text>
+            <Text style={styles.xpLabel}>Puntos de Experiencia (XP) Total</Text>
             <Text style={styles.xpValue}>+{estadisticas.totalXP} XP</Text>
           </View>
         </LinearGradient>
 
         {/* Grid de Estadísticas */}
         <View style={styles.statsGrid}>
+          {/* Total Entrenamientos */}
           <View style={styles.statCard}>
             <LinearGradient
-              colors={[COLORS.primary + '20', COLORS.primary + '10']}
+              colors={[COLORS.primary + '10', COLORS.primary + '05']}
               style={styles.statGradient}
             >
               <Text style={styles.statEmoji}>💪</Text>
               <Text style={styles.statValue}>{estadisticas.totalEntrenamientos}</Text>
-              <Text style={styles.statLabel}>Total{'\n'}Entrenamientos</Text>
+              <Text style={styles.statLabel}>Entrenos{'\n'}Completados</Text>
             </LinearGradient>
           </View>
 
+          {/* Entrenamientos esta Semana */}
           <View style={styles.statCard}>
             <LinearGradient
-              colors={['#4ECDC420', '#4ECDC410']}
+              colors={['#4ECDC410', '#4ECDC405']}
               style={styles.statGradient}
             >
-              <Text style={styles.statEmoji}>🔥</Text>
+              <Text style={styles.statEmoji}>🗓️</Text>
               <Text style={styles.statValue}>{estadisticas.estaSemana}</Text>
-              <Text style={styles.statLabel}>Esta{'\n'}Semana</Text>
+              <Text style={styles.statLabel}>Entrenos{'\n'}Esta Semana</Text>
             </LinearGradient>
           </View>
 
+          {/* Tiempo Total */}
           <View style={styles.statCard}>
             <LinearGradient
-              colors={['#FF6B6B20', '#FF6B6B10']}
+              colors={['#FF6B6B10', '#FF6B6B05']}
               style={styles.statGradient}
             >
               <Text style={styles.statEmoji}>⏱️</Text>
-              <Text style={styles.statValue}>{Math.floor(estadisticas.totalMinutos / 60)}h</Text>
-              <Text style={styles.statLabel}>Tiempo{'\n'}Total</Text>
+              <Text style={styles.statValue}>{formatTotalMinutes(estadisticas.totalMinutos)}</Text>
+              <Text style={styles.statLabel}>Tiempo{'\n'}Entrenando</Text>
             </LinearGradient>
           </View>
 
+          {/* Calorías Totales */}
           <View style={styles.statCard}>
             <LinearGradient
-              colors={['#FFD93D20', '#FFD93D10']}
+              colors={['#FFD93D10', '#FFD93D05']}
               style={styles.statGradient}
             >
               <Text style={styles.statEmoji}>🔥</Text>
               <Text style={styles.statValue}>{estadisticas.totalCalorias}</Text>
-              <Text style={styles.statLabel}>Total{'\n'}Calorías</Text>
+              <Text style={styles.statLabel}>Kcal{'\n'}Quemadas</Text>
             </LinearGradient>
           </View>
         </View>
@@ -221,13 +286,16 @@ export default function HistorialScreen() {
           ) : (
             entrenamientos.map((entrenamiento) => {
               const isExpanded = expandido === entrenamiento.id
-              
+              const numEjercicios = Array.isArray(entrenamiento.ejercicios_completados)
+                ? entrenamiento.ejercicios_completados.length
+                : 0
+
               return (
-                <TouchableOpacity 
-                  key={entrenamiento.id} 
-                  style={styles.entrenamientoCard}
+                <TouchableOpacity
+                  key={entrenamiento.id}
+                  style={[styles.entrenamientoCard, isExpanded && styles.entrenamientoCardExpanded]}
                   onPress={() => toggleExpand(entrenamiento.id)}
-                  activeOpacity={0.7}
+                  activeOpacity={0.8}
                 >
                   <View style={styles.entrenamientoHeader}>
                     <View style={styles.fechaContainer}>
@@ -240,24 +308,26 @@ export default function HistorialScreen() {
                         {formatearHora(entrenamiento.fecha)}
                       </Text>
                     </View>
-                    
+
                     <View style={styles.headerRight}>
                       {entrenamiento.xp_ganada > 0 && (
-                        <View style={styles.xpBadge}>
+                        <View style={styles.xpBadgeItem}>
                           <Text style={styles.xpBadgeIcon}>⭐</Text>
                           <Text style={styles.xpBadgeText}>+{entrenamiento.xp_ganada}</Text>
                         </View>
                       )}
                       <View style={styles.expandButton}>
-                        <Text style={styles.expandIcon}>
-                          {isExpanded ? '▼' : '▶'}
-                        </Text>
+                        <MaterialIcons
+                          name={isExpanded ? 'keyboard-arrow-up' : 'keyboard-arrow-down'}
+                          size={24}
+                          color={COLORS.primary}
+                        />
                       </View>
                     </View>
                   </View>
 
                   <Text style={styles.entrenamientoNombre}>
-                    {entrenamiento.rutinas_predefinidas?.nombre || 'Entrenamiento'}
+                    {entrenamiento.rutinas_predefinidas?.nombre || 'Rutina Desconocida'}
                   </Text>
 
                   <View style={styles.entrenamientoStats}>
@@ -271,13 +341,11 @@ export default function HistorialScreen() {
                       <Text style={styles.statBadgeText}>{entrenamiento.calorias_quemadas || 0} kcal</Text>
                     </View>
 
-                    {entrenamiento.ejercicios_completados && (
+                    {numEjercicios > 0 && (
                       <View style={[styles.statBadge, styles.statBadgeGreen]}>
                         <Text style={styles.statBadgeIcon}>💪</Text>
                         <Text style={styles.statBadgeText}>
-                          {Array.isArray(entrenamiento.ejercicios_completados) 
-                            ? entrenamiento.ejercicios_completados.length 
-                            : 0} ejercicios
+                          {numEjercicios} ejercicios
                         </Text>
                       </View>
                     )}
@@ -287,9 +355,9 @@ export default function HistorialScreen() {
                   {isExpanded && (
                     <View style={styles.detallesContainer}>
                       <View style={styles.divider} />
-                      
+
                       <Text style={styles.detallesTitle}>📊 Resumen Detallado</Text>
-                      
+
                       <View style={styles.resumenBox}>
                         <View style={styles.resumenRow}>
                           <View style={styles.resumenItem}>
@@ -312,30 +380,29 @@ export default function HistorialScreen() {
                             <Text style={styles.resumenEmoji}>⭐</Text>
                             <View>
                               <Text style={styles.resumenLabel}>XP Ganada</Text>
-                              <Text style={[styles.resumenValue, { color: COLORS.success }]}>
+                              <Text style={[styles.resumenValue, { color: COLORS.primary }]}>
                                 +{entrenamiento.xp_ganada || 0} XP
                               </Text>
                             </View>
                           </View>
+
                         </View>
                       </View>
 
                       {/* Lista de Ejercicios */}
-                      {entrenamiento.ejercicios_completados && 
-                       Array.isArray(entrenamiento.ejercicios_completados) && 
-                       entrenamiento.ejercicios_completados.length > 0 && (
+                      {numEjercicios > 0 && entrenamiento.ejerciciosConNombres && (
                         <>
                           <Text style={styles.ejerciciosTitle}>
-                            ✅ Ejercicios Completados ({entrenamiento.ejercicios_completados.length})
+                            ✅ Ejercicios Completados ({numEjercicios})
                           </Text>
                           <View style={styles.ejerciciosList}>
-                            {entrenamiento.ejercicios_completados.map((ejercicioId, index) => (
-                              <View key={index} style={styles.ejercicioItem}>
+                            {entrenamiento.ejerciciosConNombres.map((ejercicio, index) => (
+                              <View key={ejercicio.id} style={styles.ejercicioItem}>
                                 <View style={styles.ejercicioCheck}>
-                                  <Text style={styles.checkMark}>✓</Text>
+                                  <MaterialIcons name="done" size={16} color={COLORS.white} />
                                 </View>
                                 <Text style={styles.ejercicioNombre}>
-                                  Ejercicio {index + 1}
+                                  {ejercicio.nombre}
                                 </Text>
                               </View>
                             ))}
@@ -343,13 +410,6 @@ export default function HistorialScreen() {
                         </>
                       )}
 
-                      {/* Notas */}
-                      {entrenamiento.notas && (
-                        <View style={styles.notasBox}>
-                          <Text style={styles.notasTitle}>📝 Notas</Text>
-                          <Text style={styles.notasText}>{entrenamiento.notas}</Text>
-                        </View>
-                      )}
                     </View>
                   )}
                 </TouchableOpacity>
@@ -448,12 +508,12 @@ const styles = StyleSheet.create({
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    justifyContent: 'space-between',
     gap: 12,
     marginBottom: 28,
   },
   statCard: {
-    flex: 1,
-    minWidth: '47%',
+    width: '48%',
   },
   statGradient: {
     borderRadius: 16,
@@ -461,16 +521,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: COLORS.border,
+    minHeight: 140,
+    justifyContent: 'space-between',
   },
   statEmoji: {
     fontSize: 32,
     marginBottom: 8,
   },
   statValue: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
     color: COLORS.text,
     marginBottom: 6,
+    textAlign: 'center',
   },
   statLabel: {
     fontSize: 12,
@@ -521,9 +584,13 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.08,
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 2,
+  },
+  entrenamientoCardExpanded: {
+    borderColor: COLORS.primary + '50',
+    shadowOpacity: 0.15,
   },
   entrenamientoHeader: {
     flexDirection: 'row',
@@ -535,12 +602,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   fechaBadge: {
-    backgroundColor: COLORS.primary + '20',
+    backgroundColor: COLORS.primary + '10',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
     alignSelf: 'flex-start',
     marginBottom: 6,
+    borderWidth: 1,
+    borderColor: COLORS.primary + '20',
   },
   fechaDia: {
     fontSize: 13,
@@ -557,17 +626,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  xpBadge: {
+  xpBadgeItem: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFD93D',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: 12,
     gap: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   xpBadgeIcon: {
-    fontSize: 14,
+    fontSize: 12,
   },
   xpBadgeText: {
     fontSize: 12,
@@ -578,14 +652,11 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: COLORS.primary + '20',
+    backgroundColor: COLORS.surface,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  expandIcon: {
-    fontSize: 10,
-    color: COLORS.primary,
-    fontWeight: 'bold',
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   entrenamientoNombre: {
     fontSize: 18,
@@ -601,17 +672,17 @@ const styles = StyleSheet.create({
   statBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.primary + '15',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
+    backgroundColor: COLORS.primary + '10',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
     gap: 6,
   },
   statBadgeOrange: {
-    backgroundColor: '#FF6B6B15',
+    backgroundColor: '#FF6B6B10',
   },
   statBadgeGreen: {
-    backgroundColor: '#4ECDC415',
+    backgroundColor: '#4ECDC410',
   },
   statBadgeIcon: {
     fontSize: 14,
@@ -641,6 +712,8 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 20,
     gap: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   resumenRow: {
     flexDirection: 'row',
@@ -651,18 +724,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    paddingRight: 8,
   },
   resumenEmoji: {
     fontSize: 24,
   },
   resumenLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: COLORS.textSecondary,
-    marginBottom: 4,
+    marginBottom: 2,
     fontWeight: '500',
   },
   resumenValue: {
-    fontSize: 16,
+    fontSize: 15,
     color: COLORS.text,
     fontWeight: 'bold',
   },
@@ -683,43 +757,22 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 12,
     gap: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   ejercicioCheck: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: COLORS.success,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  checkMark: {
-    fontSize: 14,
-    color: COLORS.white,
-    fontWeight: 'bold',
   },
   ejercicioNombre: {
     flex: 1,
     fontSize: 14,
     color: COLORS.text,
     fontWeight: '600',
-  },
-  notasBox: {
-    backgroundColor: COLORS.primary + '10',
-    borderRadius: 12,
-    padding: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: COLORS.primary,
-  },
-  notasTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginBottom: 8,
-  },
-  notasText: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    lineHeight: 20,
   },
   bottomSpacer: {
     height: 20,
