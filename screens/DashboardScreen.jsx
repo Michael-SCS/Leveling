@@ -1,3 +1,4 @@
+import { MaterialIcons } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useEffect, useState } from 'react'
 import {
@@ -13,7 +14,6 @@ import {
   View,
 } from 'react-native'
 import { LineChart } from 'react-native-chart-kit'
-import { MaterialIcons } from '@expo/vector-icons'
 import { COLORS } from '../constants/colors'
 import { supabase } from '../lib/supabase'
 
@@ -39,7 +39,6 @@ export default function DashboardScreen({ navigation }) {
   })
   const [streak, setStreak] = useState(0)
   const [motivacion, setMotivacion] = useState('')
-  // ESTADO PARA EL GRÁFICO COLAPSABLE
   const [isChartExpanded, setIsChartExpanded] = useState(false)
 
   useEffect(() => {
@@ -85,7 +84,6 @@ export default function DashboardScreen({ navigation }) {
         setUserInfo(info)
       }
 
-      // Llamadas de carga
       loadProgreso(supaUser.id)
       loadProgresoMensual(supaUser.id)
       loadStreak(supaUser.id)
@@ -103,13 +101,12 @@ export default function DashboardScreen({ navigation }) {
     }
   }
 
-  // --- FUNCIÓN: Cargar la Rutina Rápida por Nombre ---
   const loadRutinaRapida = async () => {
     try {
       const { data, error } = await supabase
         .from('rutinas_predefinidas')
         .select('*')
-        .eq('nombre', 'Break Activo de 10 Minutos') // Buscamos por el nombre exacto
+        .eq('nombre', 'Break Activo de 10 Minutos')
         .single()
 
       if (error && error.code !== 'PGRST116') throw error
@@ -120,7 +117,6 @@ export default function DashboardScreen({ navigation }) {
       setRutinaRapida(null)
     }
   }
-  // --------------------------------------------------------
 
   const loadRutinasPersonalizadas = async (objetivo, nivel, lugar, userId) => {
     setLoadingRutinas(true)
@@ -132,14 +128,13 @@ export default function DashboardScreen({ navigation }) {
         .eq('nivel', nivel)
         .in('lugar', [lugar, 'Ambos'])
         .order('created_at', { ascending: false })
-        .limit(1) // Solo necesitamos la rutina principal aquí
+        .limit(1)
 
       if (error) throw error
 
       const rutinaPrincipal = data[0] || null
       setRutinas(data || [])
 
-      // Llamar a la función de sugerencias después de cargar la principal
       if (nivel) {
           loadOtrasRutinasSugeridas(nivel, rutinaPrincipal?.id)
       }
@@ -179,7 +174,6 @@ export default function DashboardScreen({ navigation }) {
 
   const loadProgresoMensual = async (userId) => {
     const today = new Date();
-    // Obtener la fecha de hace 6 meses
     const seisMesesAtras = new Date(today.setMonth(today.getMonth() - 6)).toISOString().split('T')[0];
     try {
       const { data, error } = await supabase
@@ -193,7 +187,6 @@ export default function DashboardScreen({ navigation }) {
       const datosAgregados = {};
       const nombresMeses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
-      // Agrupar y sumar calorías por mes
       (data || []).forEach(item => {
         const fecha = new Date(item.fecha);
         const mesIndex = fecha.getMonth();
@@ -292,23 +285,22 @@ export default function DashboardScreen({ navigation }) {
     navigation.navigate('RutinaDetalle', { rutinaId: rutina.id })
   }
 
-  // --- RENDERIZADO DE ITEM DE RUTINA (CARRUSEL INFERIOR) ---
   const renderRutinaItem = ({ item }) => (
     <TouchableOpacity
       style={styles.rutinaCard}
       onPress={() => handleRutinaPress(item)}
-      activeOpacity={0.92}
+      activeOpacity={0.85}
     >
       {item.imagen_url ? (
         <Image source={{ uri: item.imagen_url }} style={styles.rutinaImage} resizeMode="cover" />
       ) : (
-        <LinearGradient colors={[COLORS.surface, COLORS.card]} style={[styles.rutinaImage, { justifyContent: 'center', alignItems: 'center' }]}>
-          <Text style={{ color: COLORS.white }}>{item.nombre}</Text>
+        <LinearGradient colors={[COLORS.primary, COLORS.card]} style={[styles.rutinaImage, styles.placeholderGradient]}>
+          <MaterialIcons name="fitness-center" size={32} color={COLORS.white} />
         </LinearGradient>
       )}
 
       <LinearGradient
-        colors={['transparent', 'rgba(0,0,0,0.8)']}
+        colors={['transparent', 'rgba(0,0,0,0.9)']}
         style={styles.rutinaGradient}
       >
         <View style={styles.rutinaBadge}>
@@ -316,12 +308,20 @@ export default function DashboardScreen({ navigation }) {
         </View>
 
         <Text style={styles.rutinaNombre} numberOfLines={2}>{item.nombre}</Text>
-        <Text style={styles.rutinaDescripcion} numberOfLines={2}>{item.descripcion}</Text>
+        <View style={styles.rutinaMetaRow}>
+          <View style={styles.rutinaMetaItem}>
+            <MaterialIcons name="schedule" size={12} color={COLORS.white} />
+            <Text style={styles.rutinaMetaText}>{item.duracion_minutos} min</Text>
+          </View>
+          <View style={styles.rutinaMetaItem}>
+            <MaterialIcons name="calendar-today" size={12} color={COLORS.white} />
+            <Text style={styles.rutinaMetaText}>{item.dias_semana} días</Text>
+          </View>
+        </View>
       </LinearGradient>
     </TouchableOpacity>
   )
 
-  // --- RENDERIZADO DE LA TARJETA DE RUTINA RÁPIDA ---
   const renderRutinaRapidaCard = () => {
     if (!rutinaRapida) return null;
 
@@ -330,26 +330,31 @@ export default function DashboardScreen({ navigation }) {
       <TouchableOpacity
         style={styles.quickRutinaCard}
         onPress={() => handleRutinaPress(item)}
-        activeOpacity={0.9}
+        activeOpacity={0.85}
       >
         {item.imagen_url ? (
           <Image source={{ uri: item.imagen_url }} style={styles.quickRutinaImage} resizeMode="cover" />
-        ) : null}
+        ) : (
+          <LinearGradient colors={['#FF6B6B', '#EE5A6F']} style={styles.quickRutinaImage} />
+        )}
 
-        <LinearGradient colors={['transparent', 'rgba(0,0,0,0.7)']} style={styles.quickRutinaOverlay}>
+        <LinearGradient colors={['transparent', 'rgba(0,0,0,0.85)']} style={styles.quickRutinaOverlay}>
+          <View style={styles.quickBadge}>
+            <MaterialIcons name="bolt" size={14} color="#FFD700" />
+            <Text style={styles.quickBadgeText}>RÁPIDO</Text>
+          </View>
           <Text style={styles.quickRutinaTitle}>{item.nombre}</Text>
           <Text style={styles.quickRutinaSubtitle} numberOfLines={2}>
             {item.descripcion}
           </Text>
           <View style={styles.quickRutinaInfo}>
-            <Text style={styles.quickRutinaInfoText}>⏱️ {item.duracion_minutos} min</Text>
-            <Text style={styles.quickRutinaInfoText}>🔥 Rápido</Text>
+            <MaterialIcons name="schedule" size={14} color={COLORS.white} />
+            <Text style={styles.quickRutinaInfoText}>{item.duracion_minutos} minutos</Text>
           </View>
         </LinearGradient>
       </TouchableOpacity>
     )
   }
-  // ------------------------------------------------------------------
 
   if (loading) {
     return (
@@ -360,41 +365,46 @@ export default function DashboardScreen({ navigation }) {
     )
   }
 
-  // --- COMPONENTE DE GRÁFICO FUNCIONAL Y COLAPSABLE ---
   const ChartSection = () => {
     const dataPoints = progresoMensual.datasets[0].data
     const totalMeses = dataPoints.length
 
-    // Configuración del gráfico
     const chartConfig = {
       backgroundColor: COLORS.card,
       backgroundGradientFrom: COLORS.card,
       backgroundGradientTo: COLORS.card,
       decimalPlaces: 0,
-      color: (opacity = 1) => COLORS.primary, // Color de la línea principal
+      color: (opacity = 1) => `rgba(108, 92, 231, ${opacity})`,
       labelColor: (opacity = 1) => COLORS.textSecondary,
-      strokeWidth: 2,
+      strokeWidth: 3,
       propsForDots: {
-        r: '4',
+        r: '5',
         strokeWidth: '2',
         stroke: COLORS.primary,
+        fill: COLORS.card,
       },
-      propsForVerticalLabels: {
-        fontSize: 12,
+      propsForBackgroundLines: {
+        strokeDasharray: '',
+        stroke: COLORS.border,
+        strokeWidth: 1,
+      },
+      propsForLabels: {
+        fontSize: 11,
       },
     }
 
-    // Calcular el total de calorías de los últimos 6 meses para el resumen
     const totalCaloriasMensual = dataPoints.reduce((sum, val) => sum + val, 0)
 
-    // Si no hay datos, mostramos el placeholder básico.
     if (!totalMeses) {
         return (
-            <View style={[styles.chartContainerCard, {padding: 20}]}>
-                <Text style={styles.chartTitle}>Calorías Quemadas (últimos 6 meses)</Text>
+            <View style={styles.chartContainerCard}>
+                <View style={styles.chartHeaderRow}>
+                  <MaterialIcons name="show-chart" size={20} color={COLORS.primary} />
+                  <Text style={styles.chartTitle}>Progreso Mensual</Text>
+                </View>
                 <View style={styles.emptyChartContainer}>
-                    <Text style={styles.emptyChartText}>📊</Text>
-                    <Text style={styles.emptyChartText}>¡No hay datos de entrenamiento aún!</Text>
+                    <MaterialIcons name="insert-chart" size={48} color={COLORS.textSecondary} />
+                    <Text style={styles.emptyChartTitle}>¡Aún no hay datos!</Text>
                     <Text style={styles.emptyChartText}>Completa una rutina para ver tu progreso.</Text>
                 </View>
             </View>
@@ -407,44 +417,50 @@ export default function DashboardScreen({ navigation }) {
         onPress={() => setIsChartExpanded(!isChartExpanded)}
         activeOpacity={0.9}
       >
-        {/* RESUMEN VISIBLE SIEMPRE */}
         <View style={styles.chartHeaderSummary}>
-            <Text style={styles.chartTitle}>Progreso Mensual</Text>
-            <View style={styles.chartSummaryInfo}>
-                <Text style={styles.chartSummaryValue}>{totalCaloriasMensual}</Text>
-                <Text style={styles.chartSummaryLabel}>Kcal quemadas ({totalMeses} meses)</Text>
+            <View style={styles.chartHeaderRow}>
+              <MaterialIcons name="show-chart" size={20} color={COLORS.primary} />
+              <Text style={styles.chartTitle}>Progreso Mensual</Text>
             </View>
-            <MaterialIcons
-                name={isChartExpanded ? "keyboard-arrow-up" : "keyboard-arrow-down"}
-                size={24}
-                color={COLORS.textSecondary}
-            />
+            <View style={styles.chartSummaryRight}>
+              <View style={styles.chartSummaryInfo}>
+                  <Text style={styles.chartSummaryValue}>{totalCaloriasMensual.toLocaleString()}</Text>
+                  <Text style={styles.chartSummaryLabel}>Kcal ({totalMeses} meses)</Text>
+              </View>
+              <MaterialIcons
+                  name={isChartExpanded ? "keyboard-arrow-up" : "keyboard-arrow-down"}
+                  size={24}
+                  color={COLORS.textSecondary}
+              />
+            </View>
         </View>
 
-        {/* CONTENIDO EXPANDIDO (GRÁFICO) */}
         {isChartExpanded && (
           <View style={styles.chartExpandedContent}>
-             <Text style={[styles.chartTitle, { marginBottom: 15 }]}>Histórico de Calorías (últimos {totalMeses} meses)</Text>
-             <LineChart
-                data={progresoMensual}
-                width={width - 40 - 10} // Ancho de la pantalla - padding horizontal total - pequeño margen extra
-                height={220}
-                chartConfig={chartConfig}
-                bezier
-                style={{
-                  marginVertical: 8,
-                  borderRadius: 16,
-                  marginLeft: -30, // Ajuste para que el eje Y esté dentro del padding
-                }}
-                fromZero={true}
-              />
+             <Text style={styles.chartExpandedTitle}>Histórico de Calorías Quemadas</Text>
+             <View style={styles.chartWrapper}>
+               <LineChart
+                  data={progresoMensual}
+                  width={width - 70}
+                  height={240}
+                  chartConfig={chartConfig}
+                  bezier
+                  style={styles.chart}
+                  withInnerLines={true}
+                  withOuterLines={true}
+                  withVerticalLines={false}
+                  withHorizontalLines={true}
+                  withDots={true}
+                  withShadow={false}
+                  fromZero={true}
+                  segments={4}
+                />
+             </View>
           </View>
         )}
       </TouchableOpacity>
     )
   }
-  // ------------------------------------------------------------------
-
 
   return (
     <LinearGradient
@@ -455,93 +471,114 @@ export default function DashboardScreen({ navigation }) {
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
-        {/* 1. ENCABEZADO Y STATS */}
         <View style={styles.header}>
-          <Text style={styles.greeting}>Hola</Text>
+          <Text style={styles.greeting}>Hola 👋</Text>
           <Text style={styles.name}>{userInfo?.nombre_completo || 'Usuario'}</Text>
-          <Text style={styles.motivacionText}>{motivacion}</Text>
-        </View>
-
-        {/* RESUMEN DE PROGRESO DE HOY/SEMANA (LOS CÍRCULOS) */}
-        <View style={styles.progressSummary}>
-          <View style={styles.progressItem}>
-            <View style={[styles.progressCircle, { shadowColor: COLORS.primary }]}>
-              <Text style={styles.progressNumber}>{progreso.hoy}</Text>
-            </View>
-            <Text style={styles.progressLabel}>Entrenos Hoy</Text>
-          </View>
-
-          <View style={styles.progressItem}>
-            <View style={[styles.progressCircle, { shadowColor: COLORS.primary }]}>
-              <Text style={styles.progressNumber}>{progreso.semana}</Text>
-            </View>
-            <Text style={styles.progressLabel}>Esta Semana</Text>
-          </View>
-
-          <View style={styles.progressItem}>
-            <View style={[styles.progressCircle, { backgroundColor: '#FF6B6B' }]}>
-              <Text style={styles.progressNumber}>{progreso.calorias}</Text>
-            </View>
-            <Text style={styles.progressLabel}>Kcal Quemadas</Text>
+          <View style={styles.motivacionContainer}>
+            <MaterialIcons name="whatshot" size={16} color={COLORS.primary} />
+            <Text style={styles.motivacionText}>{motivacion}</Text>
           </View>
         </View>
 
-        {/* 2. TARJETA DE RUTINA PRINCIPAL (TU PLAN) */}
-        <Text style={styles.sectionTitle}>Tu Rutina Principal</Text>
+        <View style={styles.statsGrid}>
+          <View style={styles.statCard}>
+            <View style={[styles.statIconCircle, { backgroundColor: COLORS.primary + '20' }]}>
+              <MaterialIcons name="today" size={22} color={COLORS.primary} />
+            </View>
+            <Text style={styles.statNumber}>{progreso.hoy}</Text>
+            <Text style={styles.statLabel}>Hoy</Text>
+          </View>
+
+          <View style={styles.statCard}>
+            <View style={[styles.statIconCircle, { backgroundColor: '#4ECDC420' }]}>
+              <MaterialIcons name="date-range" size={22} color="#4ECDC4" />
+            </View>
+            <Text style={styles.statNumber}>{progreso.semana}</Text>
+            <Text style={styles.statLabel}>Esta Semana</Text>
+          </View>
+
+          <View style={styles.statCard}>
+            <View style={[styles.statIconCircle, { backgroundColor: '#FF6B6B20' }]}>
+              <MaterialIcons name="local-fire-department" size={22} color="#FF6B6B" />
+            </View>
+            <Text style={styles.statNumber}>{progreso.calorias}</Text>
+            <Text style={styles.statLabel}>Kcal Hoy</Text>
+          </View>
+        </View>
+
+        <View style={styles.sectionHeaderContainer}>
+          <Text style={styles.sectionTitle}>Tu Rutina Principal</Text>
+          <Text style={styles.sectionSubtitle}>Continúa donde lo dejaste</Text>
+        </View>
+
         <View style={styles.heroCard}>
           {rutinas[0]?.imagen_url ? (
             <Image source={{ uri: rutinas[0].imagen_url }} style={styles.heroImage} resizeMode="cover" />
-          ) : null}
+          ) : (
+            <LinearGradient colors={[COLORS.primary, COLORS.card]} style={styles.heroImage} />
+          )}
 
-          <LinearGradient colors={['transparent', 'rgba(0,0,0,0.8)']} style={styles.heroOverlay}>
-            <Text style={styles.heroSmall}>{rutinas[0]?.nivel || 'Sin nivel'}</Text>
-            <Text style={styles.heroTitle}>{rutinas[0]?.nombre || 'Sin rutina asignada'}</Text>
-            <Text style={styles.heroSubtitle} numberOfLines={2}>
-              {rutinas[0]?.descripcion || 'Ve a Rutinas para elegir un plan que se ajuste a tus metas.'}
-            </Text>
-
-            <View style={styles.heroMetaRow}>
-              <View style={styles.heroMeta}>
-                <Text style={styles.heroMetaLabel}>Días/Semana</Text>
-                <Text style={styles.heroMetaValue}>{rutinas[0]?.dias_semana || '—'}</Text>
+          <LinearGradient colors={['transparent', 'rgba(0,0,0,0.92)']} style={styles.heroOverlay}>
+            <View style={styles.heroTopRow}>
+              <View style={styles.heroBadge}>
+                <Text style={styles.heroBadgeText}>{rutinas[0]?.nivel || 'Sin nivel'}</Text>
               </View>
-              <View style={styles.heroMeta}>
-                <Text style={styles.heroMetaLabel}>Duración</Text>
-                <Text style={styles.heroMetaValue}>{rutinas[0]?.duracion_minutos || '—'} min</Text>
-              </View>
-              <View style={styles.heroMeta}>
-                <Text style={styles.heroMetaLabel}>Racha Actual</Text>
-                <Text style={styles.heroMetaValue}>{streak} días</Text>
+              <View style={styles.streakBadge}>
+                <MaterialIcons name="local-fire-department" size={16} color="#FFD700" />
+                <Text style={styles.streakText}>{streak} días</Text>
               </View>
             </View>
 
-            <TouchableOpacity style={styles.ctaButton} onPress={handleContinuar} activeOpacity={0.9}>
+            <Text style={styles.heroTitle} numberOfLines={2}>{rutinas[0]?.nombre || 'Sin rutina asignada'}</Text>
+            <Text style={styles.heroSubtitle} numberOfLines={3}>
+              {rutinas[0]?.descripcion || 'Ve a Rutinas para elegir un plan.'}
+            </Text>
+
+            <View style={styles.heroMetaRow}>
+              <View style={styles.heroMetaItem}>
+                <MaterialIcons name="event" size={16} color={COLORS.primary} />
+                <View style={styles.heroMetaTextContainer}>
+                  <Text style={styles.heroMetaValue}>{rutinas[0]?.dias_semana || '—'}</Text>
+                  <Text style={styles.heroMetaLabel}>Días/Sem</Text>
+                </View>
+              </View>
+              <View style={styles.heroMetaItem}>
+                <MaterialIcons name="schedule" size={16} color={COLORS.primary} />
+                <View style={styles.heroMetaTextContainer}>
+                  <Text style={styles.heroMetaValue}>{rutinas[0]?.duracion_minutos || '—'} min</Text>
+                  <Text style={styles.heroMetaLabel}>Duración</Text>
+                </View>
+              </View>
+            </View>
+
+            <TouchableOpacity style={styles.ctaButton} onPress={handleContinuar} activeOpacity={0.85}>
               <Text style={styles.ctaText}>Continuar Plan</Text>
+              <MaterialIcons name="arrow-forward" size={18} color={COLORS.white} />
             </TouchableOpacity>
           </LinearGradient>
         </View>
 
-        {/* 3. RUTINA RÁPIDA */}
         {rutinaRapida && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Entrenamiento Rápido</Text>
-            <Text style={styles.sectionSubtitle}>¿Poco tiempo? ¡Haz esta rutina de {rutinaRapida.duracion_minutos} min!</Text>
+            <View style={styles.sectionHeaderContainer}>
+              <Text style={styles.sectionTitle}>Entrenamiento Rápido</Text>
+              <Text style={styles.sectionSubtitle}>Perfecto para hoy</Text>
+            </View>
             {renderRutinaRapidaCard()}
           </View>
         )}
 
-        {/* 4. SECCIÓN DE GRÁFICO (Progreso) */}
         <ChartSection />
 
-        {/* 5. OTRAS RUTINAS SUGERIDAS */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <View>
-              <Text style={styles.sectionTitle}>Otras Rutinas Sugeridas</Text>
-              <Text style={styles.sectionSubtitle}>Más planes para tu nivel ({userInfo?.nivel || 'Cargando...'})</Text>
+              <Text style={styles.sectionTitle}>Rutinas Sugeridas</Text>
+              <Text style={styles.sectionSubtitle}>Nivel {userInfo?.nivel || 'Principiante'}</Text>
             </View>
             <TouchableOpacity onPress={() => navigation.navigate('Rutinas')} style={styles.verTodoButton}>
               <Text style={styles.verTodoText}>Ver todo</Text>
+              <MaterialIcons name="arrow-forward" size={12} color={COLORS.primary} />
             </TouchableOpacity>
           </View>
 
@@ -554,15 +591,15 @@ export default function DashboardScreen({ navigation }) {
               keyExtractor={(item) => item.id.toString()}
               horizontal
               showsHorizontalScrollIndicator={false}
-              snapToInterval={width * 0.75 + 16}
+              snapToInterval={width * 0.7 + 16}
               decelerationRate="fast"
               contentContainerStyle={styles.rutinasCarousel}
             />
           ) : (
             <View style={styles.emptyCard}>
-              <Text style={styles.emptyIcon}>📋</Text>
-              <Text style={styles.emptyTitle}>No hay más rutinas sugeridas</Text>
-              <Text style={styles.emptyText}>Quizá no haya suficientes rutinas en tu nivel: {userInfo?.nivel}</Text>
+              <MaterialIcons name="search-off" size={40} color={COLORS.textSecondary} />
+              <Text style={styles.emptyTitle}>No hay más rutinas</Text>
+              <Text style={styles.emptyText}>Nivel: {userInfo?.nivel}</Text>
             </View>
           )}
         </View>
@@ -602,363 +639,455 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   header: {
-    alignItems: 'flex-start',
-    marginBottom: 16,
+    marginBottom: 24,
   },
   greeting: {
-    fontSize: 16,
+    fontSize: 14,
     color: COLORS.textSecondary,
     fontWeight: '500',
+    marginBottom: 4,
   },
   name: {
-    fontSize: 30,
-    fontWeight: '800',
+    fontSize: 32,
+    fontWeight: '900',
     color: COLORS.text,
-    marginTop: 4,
-  },
-  motivacionText: {
-    marginTop: 8,
-    color: COLORS.primary,
-    fontWeight: '600',
-  },
-  progressSummary: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 28,
-  },
-  progressItem: {
-    alignItems: 'center',
-    flex: 1,
-    marginHorizontal: 4,
-  },
-  progressCircle: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: COLORS.card,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    elevation: 6,
     marginBottom: 8,
   },
-  progressNumber: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: COLORS.text,
+  motivacionContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.card,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
   },
-  progressLabel: {
-    fontSize: 12,
+  motivacionText: {
+    marginLeft: 6,
+    color: COLORS.primary,
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 32,
+    gap: 10,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    padding: 14,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  statIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  statNumber: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: COLORS.text,
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 10,
     color: COLORS.textSecondary,
     textAlign: 'center',
+    fontWeight: '600',
   },
   section: {
-    marginBottom: 28,
+    marginBottom: 32,
+  },
+  sectionHeaderContainer: {
+    marginBottom: 16,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: '800',
+    fontWeight: '900',
     color: COLORS.text,
-    marginBottom: 6,
+    marginBottom: 4,
   },
   sectionSubtitle: {
-    fontSize: 12,
+    fontSize: 13,
     color: COLORS.textSecondary,
+    fontWeight: '500',
   },
   verTodoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: COLORS.primary + '20',
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 10,
+    borderRadius: 12,
+    gap: 4,
   },
   verTodoText: {
     color: COLORS.primary,
     fontWeight: '700',
     fontSize: 12,
   },
-
-  // --- HERO CARD (Rutina Principal) ---
   heroCard: {
     width: '100%',
-    height: 250,
-    borderRadius: 18,
+    height: 300,
+    borderRadius: 20,
     overflow: 'hidden',
-    marginBottom: 30,
+    marginBottom: 32,
     backgroundColor: COLORS.card,
     shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 18,
-    elevation: 10,
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 12,
   },
   heroImage: {
     ...StyleSheet.absoluteFillObject,
     width: '100%',
     height: '100%',
-    opacity: 0.8,
+    opacity: 0.6,
   },
   heroOverlay: {
     flex: 1,
     padding: 20,
     justifyContent: 'flex-end',
   },
-  heroSmall: {
-    color: COLORS.white,
-    opacity: 0.9,
-    fontSize: 12,
-    marginBottom: 6,
-    fontWeight: '600',
-  },
-  heroTitle: {
-    color: COLORS.white,
-    fontSize: 24,
-    fontWeight: '900',
-  },
-  heroSubtitle: {
-    color: COLORS.white,
-    opacity: 0.95,
-    marginTop: 6,
-    fontSize: 14,
-    lineHeight: 20,
-    maxWidth: '90%',
-  },
-  heroMetaRow: {
-    flexDirection: 'row',
-    marginTop: 12,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  heroMeta: {
-    flex: 1,
-    marginRight: 10,
-    padding: 8,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 8,
-  },
-  heroMetaLabel: {
-    fontSize: 10,
-    color: COLORS.white,
-    opacity: 0.8,
-    textTransform: 'uppercase',
-  },
-  heroMetaValue: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: COLORS.white,
-    marginTop: 4,
-  },
-  ctaButton: {
-    marginTop: 18,
-    backgroundColor: COLORS.primary,
-    paddingVertical: 14,
-    borderRadius: 14,
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
-  ctaText: {
-    color: COLORS.white,
-    fontWeight: '800',
-    fontSize: 16,
-  },
-  // --- FIN HERO CARD ---
-
-  // --- RUTINA RÁPIDA (QUICK CARD) ---
-  quickRutinaCard: {
-    width: '100%',
-    height: 120,
-    borderRadius: 16,
-    overflow: 'hidden',
-    marginTop: 10,
-    backgroundColor: COLORS.card,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  quickRutinaImage: {
-    ...StyleSheet.absoluteFillObject,
-    width: '100%',
-    height: '100%',
-    opacity: 0.7,
-  },
-  quickRutinaOverlay: {
-    flex: 1,
-    padding: 15,
-    justifyContent: 'center',
-  },
-  quickRutinaTitle: {
-    color: COLORS.white,
-    fontSize: 18,
-    fontWeight: '800',
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: {width: 1, height: 1},
-    textShadowRadius: 3,
-  },
-  quickRutinaSubtitle: {
-    color: COLORS.white,
-    opacity: 0.9,
-    marginTop: 4,
-    fontSize: 12,
-    maxWidth: '80%',
-  },
-  quickRutinaInfo: {
-    flexDirection: 'row',
-    marginTop: 8,
-  },
-  quickRutinaInfoText: {
-    fontSize: 12,
-    color: COLORS.white,
-    backgroundColor: COLORS.primary + '50',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-    marginRight: 8,
-    fontWeight: '600',
-  },
-  // --- FIN RUTINA RÁPIDA ---
-
-
-  // --- CARRUSEL DE RUTINAS (Inferior) ---
-  rutinasCarousel: {
-    paddingRight: 24,
-  },
-  rutinaCard: {
-    width: width * 0.75,
-    height: 180,
-    borderRadius: 16,
-    marginRight: 16,
-    overflow: 'hidden',
-    backgroundColor: COLORS.card,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.14,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  rutinaImage: {
-    ...StyleSheet.absoluteFillObject,
-    width: '100%',
-    height: '100%',
-    opacity: 0.7,
-  },
-  rutinaGradient: {
-    flex: 1,
-    padding: 14,
-    justifyContent: 'flex-end',
-  },
-  rutinaBadge: {
-    position: 'absolute',
-    top: 12,
-    left: 12,
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 14,
-  },
-  rutinaBadgeText: {
-    color: COLORS.white,
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  rutinaNombre: {
-    color: COLORS.white,
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  rutinaDescripcion: {
-    color: COLORS.white,
-    opacity: 0.9,
-    marginTop: 6,
-    fontSize: 12,
-  },
-  // --- FIN CARRUSEL DE RUTINAS ---
-
-  // --- ESTILOS DE GRÁFICOS (COLAPSABLES) ---
-  chartContainerCard: { // Estilo para la tarjeta expandible
-    backgroundColor: COLORS.card,
-    borderRadius: 16,
-    padding: 15,
-    marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  chartHeaderSummary: {
+  heroTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 5,
-  },
-  chartTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.text,
-    flex: 1,
-  },
-  chartSummaryInfo: {
-    alignItems: 'flex-end',
-    marginRight: 10,
-  },
-  chartSummaryValue: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: COLORS.primary,
-  },
-  chartSummaryLabel: {
-    fontSize: 10,
-    color: COLORS.textSecondary,
-    textTransform: 'uppercase',
-  },
-  chartExpandedContent: {
-    marginTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    paddingTop: 10,
-  },
-  emptyChartContainer: {
-    alignItems: 'center',
-    paddingVertical: 30,
-  },
-  emptyChartText: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    marginTop: 5,
-  },
-  // --- FIN ESTILOS DE GRÁFICOS ---
-
-  emptyCard: {
-    backgroundColor: COLORS.card,
-    borderRadius: 16,
-    padding: 24,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  emptyIcon: {
-    fontSize: 40,
     marginBottom: 12,
   },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: COLORS.text,
-    marginBottom: 6,
+  heroBadge: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
   },
-  emptyText: {
+  heroBadgeText: {
+    color: COLORS.white,
     fontSize: 12,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    lineHeight: 18,
+    fontWeight: '800',
   },
+  streakBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,215,0,0.2)',
+paddingHorizontal: 10,
+paddingVertical: 6,
+borderRadius: 12,
+gap: 4,
+},
+streakText: {
+color: '#FFD700',
+fontSize: 12,
+fontWeight: '800',
+},
+heroTitle: {
+color: COLORS.white,
+fontSize: 24,
+fontWeight: '900',
+marginBottom: 8,
+},
+heroSubtitle: {
+color: COLORS.white,
+opacity: 0.9,
+fontSize: 14,
+lineHeight: 20,
+marginBottom: 14,
+},
+heroMetaRow: {
+flexDirection: 'row',
+marginBottom: 16,
+gap: 12,
+},
+heroMetaItem: {
+flexDirection: 'row',
+alignItems: 'center',
+backgroundColor: 'rgba(255,255,255,0.1)',
+paddingHorizontal: 12,
+paddingVertical: 10,
+borderRadius: 12,
+gap: 8,
+flex: 1,
+},
+heroMetaTextContainer: {
+flex: 1,
+},
+heroMetaValue: {
+fontSize: 15,
+fontWeight: '800',
+color: COLORS.white,
+},
+heroMetaLabel: {
+fontSize: 9,
+color: COLORS.white,
+opacity: 0.8,
+marginTop: 2,
+},
+ctaButton: {
+backgroundColor: COLORS.primary,
+paddingVertical: 14,
+borderRadius: 14,
+alignItems: 'center',
+flexDirection: 'row',
+justifyContent: 'center',
+gap: 8,
+},
+ctaText: {
+color: COLORS.white,
+fontWeight: '900',
+fontSize: 16,
+},
+quickRutinaCard: {
+width: '100%',
+height: 130,
+borderRadius: 18,
+overflow: 'hidden',
+backgroundColor: COLORS.card,
+shadowColor: '#000',
+shadowOffset: { width: 0, height: 6 },
+shadowOpacity: 0.15,
+shadowRadius: 12,
+elevation: 6,
+},
+quickRutinaImage: {
+...StyleSheet.absoluteFillObject,
+width: '100%',
+height: '100%',
+opacity: 0.5,
+},
+quickRutinaOverlay: {
+flex: 1,
+padding: 16,
+justifyContent: 'center',
+},
+quickBadge: {
+flexDirection: 'row',
+alignItems: 'center',
+backgroundColor: 'rgba(255,215,0,0.2)',
+paddingHorizontal: 10,
+paddingVertical: 4,
+borderRadius: 10,
+alignSelf: 'flex-start',
+marginBottom: 10,
+gap: 4,
+},
+quickBadgeText: {
+color: '#FFD700',
+fontSize: 11,
+fontWeight: '900',
+},
+quickRutinaTitle: {
+color: COLORS.white,
+fontSize: 18,
+fontWeight: '900',
+marginBottom: 6,
+},
+quickRutinaSubtitle: {
+color: COLORS.white,
+opacity: 0.9,
+fontSize: 13,
+marginBottom: 10,
+},
+quickRutinaInfo: {
+flexDirection: 'row',
+alignItems: 'center',
+backgroundColor: COLORS.primary + '40',
+paddingHorizontal: 10,
+paddingVertical: 6,
+borderRadius: 10,
+alignSelf: 'flex-start',
+gap: 6,
+},
+quickRutinaInfoText: {
+fontSize: 12,
+color: COLORS.white,
+fontWeight: '700',
+},
+rutinasCarousel: {
+paddingRight: 20,
+},
+rutinaCard: {
+width: width * 0.7,
+height: 200,
+borderRadius: 18,
+marginRight: 16,
+overflow: 'hidden',
+backgroundColor: COLORS.card,
+shadowColor: '#000',
+shadowOffset: { width: 0, height: 6 },
+shadowOpacity: 0.15,
+shadowRadius: 12,
+elevation: 6,
+},
+rutinaImage: {
+...StyleSheet.absoluteFillObject,
+width: '100%',
+height: '100%',
+opacity: 0.6,
+},
+placeholderGradient: {
+justifyContent: 'center',
+alignItems: 'center',
+},
+rutinaGradient: {
+flex: 1,
+padding: 16,
+justifyContent: 'flex-end',
+},
+rutinaBadge: {
+position: 'absolute',
+top: 14,
+left: 14,
+backgroundColor: COLORS.primary,
+paddingHorizontal: 12,
+paddingVertical: 6,
+borderRadius: 12,
+},
+rutinaBadgeText: {
+color: COLORS.white,
+fontSize: 11,
+fontWeight: '900',
+},
+rutinaNombre: {
+color: COLORS.white,
+fontSize: 17,
+fontWeight: '900',
+marginBottom: 10,
+},
+rutinaMetaRow: {
+flexDirection: 'row',
+gap: 8,
+},
+rutinaMetaItem: {
+flexDirection: 'row',
+alignItems: 'center',
+backgroundColor: 'rgba(255,255,255,0.15)',
+paddingHorizontal: 8,
+paddingVertical: 5,
+borderRadius: 8,
+gap: 4,
+},
+rutinaMetaText: {
+color: COLORS.white,
+fontSize: 11,
+fontWeight: '700',
+},
+chartContainerCard: {
+backgroundColor: COLORS.card,
+borderRadius: 18,
+padding: 18,
+marginBottom: 32,
+shadowColor: '#000',
+shadowOffset: { width: 0, height: 6 },
+shadowOpacity: 0.12,
+shadowRadius: 12,
+elevation: 6,
+},
+chartHeaderSummary: {
+flexDirection: 'row',
+justifyContent: 'space-between',
+alignItems: 'center',
+paddingBottom: 12,
+},
+chartHeaderRow: {
+flexDirection: 'row',
+alignItems: 'center',
+gap: 8,
+},
+chartTitle: {
+fontSize: 17,
+fontWeight: '900',
+color: COLORS.text,
+},
+chartSummaryRight: {
+flexDirection: 'row',
+alignItems: 'center',
+gap: 8,
+},
+chartSummaryInfo: {
+alignItems: 'flex-end',
+},
+chartSummaryValue: {
+fontSize: 20,
+fontWeight: '900',
+color: COLORS.primary,
+},
+chartSummaryLabel: {
+fontSize: 10,
+color: COLORS.textSecondary,
+fontWeight: '600',
+},
+chartExpandedContent: {
+marginTop: 16,
+paddingTop: 16,
+borderTopWidth: 1,
+borderTopColor: COLORS.border,
+},
+chartExpandedTitle: {
+fontSize: 14,
+fontWeight: '700',
+color: COLORS.textSecondary,
+marginBottom: 16,
+textAlign: 'center',
+},
+chartWrapper: {
+alignItems: 'center',
+overflow: 'hidden',
+},
+chart: {
+borderRadius: 16,
+paddingRight: 0,
+},
+emptyChartContainer: {
+alignItems: 'center',
+paddingVertical: 40,
+},
+emptyChartTitle: {
+fontSize: 16,
+fontWeight: '800',
+color: COLORS.text,
+marginTop: 12,
+marginBottom: 6,
+},
+emptyChartText: {
+fontSize: 13,
+color: COLORS.textSecondary,
+textAlign: 'center',
+},
+emptyCard: {
+backgroundColor: COLORS.card,
+borderRadius: 16,
+padding: 32,
+alignItems: 'center',
+borderWidth: 1,
+borderColor: COLORS.border,
+},
+emptyTitle: {
+fontSize: 16,
+fontWeight: '800',
+color: COLORS.text,
+marginTop: 12,
+marginBottom: 6,
+},
+emptyText: {
+fontSize: 13,
+color: COLORS.textSecondary,
+textAlign: 'center',
+},
 })

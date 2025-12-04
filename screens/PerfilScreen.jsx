@@ -147,7 +147,6 @@ Al continuar usando la app, confirmas que has leído y aceptado estos términos.
 
               <View style={styles.textContainerRight}>
                 <Text style={styles.userName} numberOfLines={1}>{userInfo?.nombre_completo || 'Usuario'}</Text>
-                <Text style={styles.userEmail} numberOfLines={1}>{user?.email}</Text>
 
                 <TouchableOpacity 
                   style={styles.levelBadge} 
