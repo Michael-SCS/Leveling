@@ -1,33 +1,31 @@
-import React, { useEffect } from 'react'
-import { NavigationContainer } from '@react-navigation/native'
-import { createNativeStackNavigator } from '@react-navigation/native-stack'
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
-import { StatusBar } from 'expo-status-bar'
-import { Text, View, ActivityIndicator } from 'react-native'
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons'
-import {
-  useFonts,
-  Poppins_400Regular,
-  Poppins_500Medium,
-  Poppins_600SemiBold,
-  Poppins_700Bold,
-} from '@expo-google-fonts/poppins'
 import {
   Montserrat_400Regular,
   Montserrat_500Medium,
   Montserrat_600SemiBold,
   Montserrat_700Bold,
 } from '@expo-google-fonts/montserrat'
+import {
+  Poppins_400Regular,
+  Poppins_500Medium,
+  Poppins_600SemiBold,
+  Poppins_700Bold,
+  useFonts,
+} from '@expo-google-fonts/poppins'
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons'
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
+import { NavigationContainer } from '@react-navigation/native'
+import { createNativeStackNavigator } from '@react-navigation/native-stack'
+import { StatusBar } from 'expo-status-bar'
+import { ActivityIndicator, Text, View } from 'react-native'
 import { AuthProvider, useAuth } from './components/AuthProvider'
-import LoginScreen from './screens/LoginScreen'
-import RegisterScreen from './screens/RegisterScreen'
-import DashboardScreen from './screens/DashboardScreen'
-import RutinasScreen from './screens/RutinasScreen'
-import AlimentacionScreen from './screens/AlimentacionScreen'
-import PerfilScreen from './screens/PerfilScreen'
-import RutinaDetalleScreen from './screens/RutinaDetalleScreen'
-import HistorialScreen from './screens/HistorialScreen'
 import { COLORS } from './constants/colors'
+import DashboardScreen from './screens/DashboardScreen'
+import HistorialScreen from './screens/HistorialScreen'
+import LoginScreen from './screens/LoginScreen'
+import PerfilScreen from './screens/PerfilScreen'
+import RegisterScreen from './screens/RegisterScreen'
+import RutinaDetalleScreen from './screens/RutinaDetalleScreen'
+import RutinasScreen from './screens/RutinasScreen'
 
 const Stack = createNativeStackNavigator()
 const Tab = createBottomTabNavigator()
@@ -94,19 +92,7 @@ function MainTabs() {
           ),
         }}
       />
-      <Tab.Screen
-        name="Alimentación"
-        component={AlimentacionScreen}
-        options={{
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? "fast-food" : "fast-food-outline"}
-              size={24}
-              color={color}
-            />
-          ),
-        }}
-      />
+      
       <Tab.Screen
         name="Perfil"
         component={PerfilScreen}
