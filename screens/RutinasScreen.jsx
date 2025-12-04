@@ -1,3 +1,4 @@
+import { MaterialIcons } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useEffect, useState } from 'react'
 import {
@@ -6,8 +7,9 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native'
 import { COLORS } from '../constants/colors'
 import { supabase } from '../lib/supabase'
@@ -16,34 +18,39 @@ export default function RutinasScreen({ navigation }) {
   const [loading, setLoading] = useState(true)
   const [rutinas, setRutinas] = useState([])
   const [filtroNivel, setFiltroNivel] = useState('Todas')
+  const [filtroEquipo, setFiltroEquipo] = useState('Todos')
+  const [busqueda, setBusqueda] = useState('')
+  const [filtrosExpandidos, setFiltrosExpandidos] = useState(false)
 
   useEffect(() => {
     loadRutinas()
   }, [])
 
+  // ==================== FUNCIONES DE CARGA ====================
   const loadRutinas = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('rutinas_predefinidas') // <-- ¡CORREGIDO!
-        .select('*')
-        .order('nivel', { ascending: true })
+    try {
+      const { data, error } = await supabase
+        .from('rutinas_predefinidas')
+        .select('*')
+        .order('nivel', { ascending: true })
 
-      if (error) throw error
+      if (error) throw error
+      setRutinas(data || [])
+    } catch (error) {
+      console.log('Error cargando rutinas:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
-      setRutinas(data || [])
-    } catch (error) {
-      console.log('Error cargando rutinas:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
+  // ==================== FUNCIONES DE NAVEGACIÓN ====================
   const handleRutinaPress = (rutina) => {
     navigation.navigate('RutinaDetalle', { rutinaId: rutina.id })
   }
 
+  // ==================== FUNCIONES DE COLOR Y ESTILO ====================
   const getNivelColor = (nivel) => {
-    switch(nivel) {
+    switch (nivel) {
       case 'Principiante': return '#4ECDC4'
       case 'Intermedio': return '#FFD93D'
       case 'Avanzado': return '#FF6B6B'
@@ -51,15 +58,237 @@ export default function RutinasScreen({ navigation }) {
     }
   }
 
-  const rutinasFiltradas =
-    filtroNivel === 'Todas'
-      ? rutinas
-      : rutinas.filter((r) => r.nivel === filtroNivel)
+  const getChipColor = (categoria) => {
+    switch (categoria) {
+      // Filtros de nivel
+      case 'Principiante': return '#4ECDC4'
+      case 'Intermedio': return '#FFD93D'
+      case 'Avanzado': return '#FF6B6B'
+      // Filtros de equipo
+      case 'Sin Equipo': return '#7ED957'
+      case 'Mancuernas': return '#45B7D1'
+      case 'Banda Elástica': return '#A55EEA'
+      // Etiquetas de información
+      case 'Cuerpo Completo': return '#FF6B9D'
+      case 'Piernas': return '#5F9EA0'
+      case 'Brazos': return '#FFA07A'
+      case 'Abdomen': return '#FFB347'
+      case 'Espalda': return '#8A9A5B'
+      case 'Pecho': return '#CD5C5C'
+      case 'Fuerza': return '#DC143C'
+      case 'Resistencia': return '#4169E1'
+      case 'Flexibilidad': return '#32CD32'
+      case 'Cardio': return '#FF4500'
+      case 'Hipertrofia': return '#8B008B'
+      case 'Pérdida de Grasa': return '#FF6347'
+      case 'Fitness General': return '#20B2AA'
+      case 'Casa': return '#FF69B4'
+      case 'Gimnasio': return '#4682B4'
+      case 'Ambos': return '#9370DB'
+      // Defaults
+      case 'Todas':
+      case 'Todos': 
+        return COLORS.card
+      default: 
+        return COLORS.card
+    }
+  }
 
+  // ==================== FUNCIONES DE ICONOS Y ETIQUETAS ====================
+  const getIconAndLabel = (key, value) => {
+    const safeValue = value ? String(value) : null
+    
+    switch (key) {
+      case 'parte_trabajada':
+        const parteIconMap = {
+          'Cuerpo Completo': 'accessibility-new',
+          'Piernas': 'directions-run',
+          'Brazos': 'fitness-center',
+          'Abdomen': 'self-improvement',
+          'Espalda': 'airline-seat-recline-normal',
+          'Pecho': 'sports-martial-arts',
+        }
+        return { 
+          icon: parteIconMap[safeValue] || 'accessibility-new',
+          label: safeValue || 'Cuerpo Completo',
+          color: '#FF6B9D' // Rosa para todas las partes del cuerpo
+        }
+      case 'objetivo':
+        const objetivoIconMap = {
+          'Fuerza': 'fitness-center',
+          'Resistencia': 'sports-score',
+          'Flexibilidad': 'self-improvement',
+          'Cardio': 'favorite',
+          'Hipertrofia': 'trending-up',
+          'Pérdida de Grasa': 'local-fire-department',
+          'Fitness General': 'whatshot',
+        }
+        return { 
+          icon: objetivoIconMap[safeValue] || 'whatshot',
+          label: safeValue || 'Fitness General',
+          color: '#FF6347' // Naranja rojizo para todos los objetivos
+        }
+      case 'duracion_minutos':
+        return { 
+          icon: 'timer', 
+          label: `${safeValue || '--'} min`,
+          color: '#9C27B0' // Púrpura para duración
+        }
+      case 'lugar':
+        const lugarIconMap = {
+          'Casa': 'home',
+          'Gimnasio': 'fitness-center',
+          'Ambos': 'location-on'
+        }
+        return { 
+          icon: lugarIconMap[safeValue] || 'location-on',
+          label: safeValue || 'Ambos',
+          color: '#4682B4' // Azul para todos los lugares
+        }
+      case 'equipo':
+        const equipoLabel = value ? 'Con Equipo' : 'Sin Equipo'
+        return {
+          icon: value ? 'hardware' : 'person',
+          label: equipoLabel,
+          color: '#7ED957' // Verde para equipo
+        }
+      default:
+        return { 
+          icon: 'info', 
+          label: safeValue || 'Información',
+          color: COLORS.card
+        }
+    }
+  }
+
+  // ==================== FILTRADO DE RUTINAS ====================
+  const rutinasFiltradas = rutinas.filter((rutina) => {
+    // Filtro de búsqueda por nombre
+    if (busqueda.trim() !== '') {
+      const nombreLower = rutina.nombre.toLowerCase()
+      const busquedaLower = busqueda.toLowerCase()
+      if (!nombreLower.includes(busquedaLower)) {
+        return false
+      }
+    }
+    
+    // Filtro de nivel
+    if (filtroNivel !== 'Todas' && rutina.nivel !== filtroNivel) {
+      return false
+    }
+    
+    // Filtro de equipo
+    if (filtroEquipo !== 'Todos') {
+      if (filtroEquipo === 'Sin Equipo' && rutina.equipo !== false) {
+        return false
+      }
+      if (filtroEquipo === 'Mancuernas' && rutina.equipo !== true) {
+        return false
+      }
+      if (filtroEquipo === 'Banda Elástica' && rutina.equipo !== true) {
+        return false
+      }
+    }
+    
+    return true
+  })
+
+  // ==================== RENDERIZADO DE TARJETAS ====================
+  const renderRutinaCard = (rutina) => {
+    const infoItems = [
+      { key: 'parte_trabajada', value: rutina.parte_trabajada },
+      { key: 'objetivo', value: rutina.objetivo },
+      { key: 'duracion_minutos', value: rutina.duracion_minutos },
+      { key: 'lugar', value: rutina.lugar },
+      { key: 'equipo', value: rutina.equipo },
+    ]
+
+    return (
+      <TouchableOpacity
+        key={rutina.id}
+        style={styles.rutinaCard}
+        onPress={() => handleRutinaPress(rutina)}
+        activeOpacity={0.85}
+      >
+        <Image 
+          source={{ uri: rutina.imagen_url }} 
+          style={styles.rutinaImage} 
+        />
+
+        <LinearGradient 
+          colors={["rgba(0,0,0,0.1)", "rgba(0,0,0,0.95)"]} 
+          style={styles.rutinaGradient}
+        >
+          {/* Header */}
+          <View style={styles.rutinaHeader}>
+            <Text style={styles.rutinaNombre} numberOfLines={1}>
+              {rutina.nombre}
+            </Text>
+
+            <View style={[
+              styles.rutinaBadge, 
+              { backgroundColor: getNivelColor(rutina.nivel) }
+            ]}> 
+              <Text style={styles.rutinaBadgeText}>
+                {rutina.nivel}
+              </Text>
+            </View>
+          </View>
+
+          {/* Content */}
+          <View style={styles.rutinaContent}>
+            {/* Info Items */}
+            <View style={styles.rutinaInfo}>
+              {infoItems.map((item, index) => {
+                const { icon, label, color } = getIconAndLabel(item.key, item.value)
+                
+                return (
+                  <View 
+                    key={index} 
+                    style={[
+                      styles.infoItem,
+                      { backgroundColor: color }
+                    ]}
+                  >
+                    <MaterialIcons 
+                      name={icon} 
+                      size={14} 
+                      color={COLORS.white} 
+                      style={styles.infoIcon} 
+                    />
+                    <Text style={styles.infoText} numberOfLines={1}>
+                      {label}
+                    </Text>
+                  </View>
+                )
+              })}
+            </View>
+
+            {/* Descripción */}
+            <Text style={styles.rutinaDescripcion} numberOfLines={2}>
+              {rutina.descripcion || 'Sin descripción disponible.'}
+            </Text>
+
+            {/* Botón */}
+            <View style={styles.verDetallesButton}>
+              <Text style={styles.verDetallesText}>Ver ejercicios</Text>
+              <MaterialIcons 
+                name="arrow-forward" 
+                size={18} 
+                color={COLORS.primary} 
+              />
+            </View>
+          </View>
+        </LinearGradient>
+      </TouchableOpacity>
+    )
+  }
+
+  // ==================== PANTALLA DE CARGA ====================
   if (loading) {
     return (
-      <LinearGradient
-        colors={[COLORS.background, COLORS.surface]}
+      <LinearGradient 
+        colors={[COLORS.background, COLORS.surface]} 
         style={styles.loadingContainer}
       >
         <ActivityIndicator size="large" color={COLORS.primary} />
@@ -68,90 +297,129 @@ export default function RutinasScreen({ navigation }) {
     )
   }
 
+  // ==================== RENDER PRINCIPAL ====================
   return (
-    <LinearGradient
-      colors={[COLORS.background, COLORS.surface]}
+    <LinearGradient 
+      colors={[COLORS.background, COLORS.surface]} 
       style={styles.container}
     >
       <View style={styles.headerOverlay} />
-      
+
       <ScrollView 
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={styles.scrollContent} 
         showsVerticalScrollIndicator={false}
       >
+        {/* Header */}
         <View style={styles.headerContainer}>
           <Text style={styles.title}>Rutinas</Text>
           <Text style={styles.subtitle}>Escoge una rutina por nivel</Text>
         </View>
 
-        {/* Filtros */}
-        <ScrollView 
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={{ paddingLeft: 24, marginBottom: 20 }}
-        >
-          {['Todas','Principiante','Intermedio','Avanzado'].map((nivel) => (
-            <TouchableOpacity
-              key={nivel}
-              style={[
-                styles.filterChip,
-                filtroNivel === nivel && styles.filterChipActive
-              ]}
-              onPress={() => setFiltroNivel(nivel)}
-            >
-              <Text style={[
-                styles.filterChipText,
-                filtroNivel === nivel && styles.filterChipTextActive
-              ]}>
-                {nivel}
-              </Text>
+        {/* Barra de búsqueda */}
+        <View style={styles.searchContainer}>
+          <MaterialIcons name="search" size={20} color={COLORS.textSecondary} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Buscar rutina por nombre..."
+            placeholderTextColor={COLORS.textSecondary}
+            value={busqueda}
+            onChangeText={setBusqueda}
+          />
+          {busqueda.length > 0 && (
+            <TouchableOpacity onPress={() => setBusqueda('')}>
+              <MaterialIcons name="close" size={20} color={COLORS.textSecondary} />
             </TouchableOpacity>
-          ))}
-        </ScrollView>
-
-        {/* Lista de Rutinas */}
-        <View style={{ paddingHorizontal: 24 }}>
-          {rutinasFiltradas.map((rutina) => (
-            <TouchableOpacity
-              key={rutina.id}
-              style={styles.rutinaCard}
-              onPress={() => handleRutinaPress(rutina)}
-              activeOpacity={0.85}
-            >
-              <Image 
-                source={{ uri: rutina.imagen_url }}
-                style={styles.rutinaImage}
-              />
-
-              <LinearGradient
-                colors={['transparent', 'rgba(0,0,0,0.95)']}
-                style={styles.rutinaGradient}
-              >
-                <View style={styles.rutinaTop}>
-                  <View style={[
-                    styles.rutinaBadge,
-                    { backgroundColor: getNivelColor(rutina.nivel) }
-                  ]}>
-                    <Text style={styles.rutinaBadgeText}>{rutina.nivel}</Text>
-                  </View>
-                </View>
-
-                <View style={styles.rutinaContent}>
-                  <Text style={styles.rutinaNombre}>{rutina.nombre}</Text>
-                  <Text style={styles.rutinaDescripcion} numberOfLines={2}>
-                    {rutina.descripcion}
-                  </Text>
-
-                  <View style={styles.verDetallesButton}>
-                    <Text style={styles.verDetallesText}>Ver ejercicios</Text>
-                    <Text style={styles.verDetallesIcon}>→</Text>
-                  </View>
-                </View>
-              </LinearGradient>
-            </TouchableOpacity>
-          ))}
+          )}
         </View>
 
+        {/* Botón de expandir/colapsar filtros */}
+        <TouchableOpacity
+          style={styles.filtrosToggle}
+          onPress={() => setFiltrosExpandidos(!filtrosExpandidos)}
+          activeOpacity={0.7}
+        >
+          <View style={styles.filtrosToggleContent}>
+            <MaterialIcons name="filter-list" size={20} color={COLORS.text} />
+            <Text style={styles.filtrosToggleText}>Filtros avanzados</Text>
+          </View>
+          <MaterialIcons 
+            name={filtrosExpandidos ? "expand-less" : "expand-more"} 
+            size={24} 
+            color={COLORS.text} 
+          />
+        </TouchableOpacity>
+
+        {/* Filtros desplegables */}
+        {filtrosExpandidos && (
+          <View style={styles.filtrosContainer}>
+            {/* Filtro de Nivel */}
+            <View style={styles.filtroSection}>
+              <Text style={styles.filtroLabel}>Nivel</Text>
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false} 
+                style={styles.filtroScrollView}
+              >
+                {['Todas', 'Principiante', 'Intermedio', 'Avanzado'].map((nivel) => (
+                  <TouchableOpacity
+                    key={nivel}
+                    style={[
+                      styles.filterChip, 
+                      filtroNivel === nivel && { 
+                        backgroundColor: getChipColor(nivel) 
+                      }
+                    ]}
+                    onPress={() => setFiltroNivel(nivel)}
+                  >
+                    <Text style={[
+                      styles.filterChipText, 
+                      filtroNivel === nivel && { color: COLORS.white }
+                    ]}>
+                      {nivel}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+
+            {/* Filtro de Equipo */}
+            <View style={styles.filtroSection}>
+              <Text style={styles.filtroLabel}>Equipo</Text>
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false} 
+                style={styles.filtroScrollView}
+              >
+                {['Todos', 'Sin Equipo', 'Mancuernas', 'Banda Elástica'].map((tipo) => (
+                  <TouchableOpacity
+                    key={tipo}
+                    style={[
+                      styles.filterChip, 
+                      filtroEquipo === tipo && { 
+                        backgroundColor: getChipColor(tipo) 
+                      }
+                    ]}
+                    onPress={() => setFiltroEquipo(tipo)}
+                  >
+                    <Text style={[
+                      styles.filterChipText, 
+                      filtroEquipo === tipo && { color: COLORS.white }
+                    ]}>
+                      {tipo}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </View>
+        )}
+
+        {/* Lista de Rutinas */}
+        <View style={styles.rutinasContainer}>
+          {rutinasFiltradas.map((rutina) => renderRutinaCard(rutina))}
+        </View>
+
+        {/* Mensaje vacío */}
         {rutinasFiltradas.length === 0 && (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyTitle}>No hay rutinas</Text>
@@ -165,7 +433,7 @@ export default function RutinasScreen({ navigation }) {
   )
 }
 
-
+// ==================== ESTILOS ====================
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -191,7 +459,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   scrollContent: {
-    paddingTop: 110, // Aumentado para que no tape el título
+    paddingTop: 110,
     paddingBottom: 40,
   },
   headerContainer: {
@@ -202,99 +470,102 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: 'bold',
     color: COLORS.text,
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: COLORS.textSecondary,
     marginBottom: 12,
   },
-  objetivoTag: {
+  searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.primary + '20',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  objetivoIcon: {
-    fontSize: 16,
-    marginRight: 8,
-  },
-  objetivoText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: COLORS.primary,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: 24,
-    gap: 12,
-    marginBottom: 24,
-  },
-  statCard: {
-    flex: 1,
     backgroundColor: COLORS.card,
-    borderRadius: 16,
-    padding: 20,
-    alignItems: 'center',
+    marginHorizontal: 24,
+    marginBottom: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  statNumber: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: COLORS.primary,
-    marginBottom: 6,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    fontWeight: '600',
-  },
-  filterContainer: {
-    marginBottom: 24,
-    paddingLeft: 24,
-  },
-  filterTitle: {
+  searchInput: {
+    flex: 1,
+    marginLeft: 8,
     fontSize: 16,
-    fontWeight: 'bold',
     color: COLORS.text,
-    marginBottom: 12,
   },
-  filterScroll: {
-    paddingRight: 24,
+  filtrosToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: COLORS.card,
+    marginHorizontal: 24,
+    marginBottom: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  filtrosToggleContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
+  },
+  filtrosToggleText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  filtrosContainer: {
+    backgroundColor: COLORS.card,
+    marginHorizontal: 24,
+    marginBottom: 20,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  filtroSection: {
+    marginBottom: 16,
+  },
+  filtroLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: 8,
+    marginLeft: 4,
+  },
+  filtroScrollView: {
+    flexDirection: 'row',
+  },
+  filterScrollView: {
+    paddingLeft: 24,
+    marginBottom: 10,
+  },
+  filterScrollViewBottom: {
+    paddingLeft: 24,
+    marginBottom: 20,
   },
   filterChip: {
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 20,
     backgroundColor: COLORS.card,
-    borderWidth: 2,
-    borderColor: COLORS.border,
+    borderWidth: 0,
     marginRight: 8,
-  },
-  filterChipActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
   },
   filterChipText: {
     fontSize: 14,
     fontWeight: '600',
     color: COLORS.text,
   },
-  filterChipTextActive: {
-    color: COLORS.white,
-  },
   rutinasContainer: {
     paddingHorizontal: 24,
   },
-  rutinasTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: COLORS.text,
-    marginBottom: 16,
-  },
   rutinaCard: {
-    height: 320, // Aumentado para que quepa todo
+    height: 350,
     borderRadius: 20,
     marginBottom: 20,
     overflow: 'hidden',
@@ -312,26 +583,34 @@ const styles = StyleSheet.create({
   },
   rutinaGradient: {
     flex: 1,
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
   },
-  rutinaTop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    padding: 20,
+  rutinaHeader: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+  },
+  rutinaNombre: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: COLORS.white,
+    flex: 1,
+    marginRight: 10,
+    textShadowColor: 'rgba(0,0,0,0.7)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   rutinaBadge: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 4,
+    alignSelf: 'flex-start',
   },
   rutinaBadgeText: {
     color: COLORS.white,
@@ -341,42 +620,39 @@ const styles = StyleSheet.create({
   rutinaContent: {
     padding: 20,
   },
-  rutinaNombre: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: COLORS.white,
-    marginBottom: 8,
-    textShadowColor: 'rgba(0,0,0,0.5)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
-  },
   rutinaDescripcion: {
-    fontSize: 15,
+    fontSize: 14,
     color: COLORS.white,
-    opacity: 0.95,
+    opacity: 0.9,
     marginBottom: 16,
-    lineHeight: 22,
+    lineHeight: 20,
   },
   rutinaInfo: {
     flexDirection: 'row',
-    gap: 12,
     flexWrap: 'wrap',
+    gap: 8,
     marginBottom: 16,
   },
   infoItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    marginRight: 8,
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
   },
   infoIcon: {
-    fontSize: 14,
-    marginRight: 6,
+    marginRight: 4,
+    color: COLORS.white,
   },
   infoText: {
-    fontSize: 13,
+    fontSize: 11,
     color: COLORS.white,
     fontWeight: '600',
   },
@@ -385,33 +661,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: COLORS.white,
-    paddingVertical: 14,
+    paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 12,
-    gap: 8,
+    gap: 6,
   },
   verDetallesText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: 'bold',
     color: COLORS.primary,
-  },
-  verDetallesIcon: {
-    fontSize: 18,
-    color: COLORS.primary,
-    fontWeight: 'bold',
   },
   emptyCard: {
+    paddingHorizontal: 24,
+    marginTop: 20,
     backgroundColor: COLORS.card,
     borderRadius: 20,
     padding: 40,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: COLORS.border,
-    marginTop: 20,
-  },
-  emptyIcon: {
-    fontSize: 56,
-    marginBottom: 16,
   },
   emptyTitle: {
     fontSize: 18,
@@ -426,16 +694,5 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 20,
-  },
-  resetFilterButton: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  resetFilterText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: COLORS.white,
   },
 })
