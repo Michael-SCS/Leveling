@@ -27,6 +27,10 @@ import RegisterScreen from './screens/RegisterScreen'
 import RutinaDetalleScreen from './screens/RutinaDetalleScreen'
 import RutinasScreen from './screens/RutinasScreen'
 
+// ✅ IMPORTA LAS 2 PANTALLAS NUEVAS
+import EditarPerfilScreen from './screens/EditarPerfilScreen'
+import NotificacionesScreen from './screens/NotificacionesScreen'
+
 const Stack = createNativeStackNavigator()
 const Tab = createBottomTabNavigator()
 
@@ -147,6 +151,22 @@ function Navigation() {
             options={{
               presentation: 'modal',
               animation: 'slide_from_bottom',
+            }}
+          />
+          
+          {/* ✅ AGREGA ESTAS 2 PANTALLAS NUEVAS */}
+          <Stack.Screen 
+            name="EditarPerfil" 
+            component={EditarPerfilScreen}
+            options={{
+              animation: 'slide_from_right',
+            }}
+          />
+          <Stack.Screen 
+            name="Notificaciones" 
+            component={NotificacionesScreen}
+            options={{
+              animation: 'slide_from_right',
             }}
           />
         </>
