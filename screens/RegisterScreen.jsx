@@ -1,19 +1,19 @@
-import React, { useState, useEffect } from 'react'
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
-  KeyboardAvoidingView, 
-  Platform,
-  Alert,
-  TouchableOpacity
-} from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
-import { supabase } from '../lib/supabase'
+import { useEffect, useState } from 'react'
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native'
 import AuthInput from '../components/AuthInput'
 import Button from '../components/Button'
 import { COLORS } from '../constants/colors'
+import { supabase } from '../lib/supabase'
 
 export default function RegisterScreen({ navigation }) {
   const [step, setStep] = useState(1)
@@ -36,13 +36,14 @@ export default function RegisterScreen({ navigation }) {
   
   // Paso 4: Objetivos
   const [objetivo, setObjetivo] = useState('')
-  const [nivel, setNivel] = useState('')
   const [diasSemana, setDiasSemana] = useState('')
   const [tiempoSesion, setTiempoSesion] = useState('')
   const [lugarEntrenamiento, setLugarEntrenamiento] = useState('')
+  
+  // Paso 5: Equipamiento
+  const [equipamiento, setEquipamiento] = useState([])
 
   useEffect(() => {
-    // Verificar si ya hay sesión
     checkSession()
   }, [])
 
@@ -101,10 +102,20 @@ export default function RegisterScreen({ navigation }) {
     const newErrors = {}
     
     if (!objetivo) newErrors.objetivo = 'Selecciona tu objetivo'
-    if (!nivel) newErrors.nivel = 'Selecciona tu nivel'
     if (!diasSemana) newErrors.diasSemana = 'Indica cuántos días entrenarás'
     if (!tiempoSesion) newErrors.tiempoSesion = 'Indica el tiempo por sesión'
     if (!lugarEntrenamiento) newErrors.lugarEntrenamiento = 'Selecciona dónde entrenarás'
+    
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
+  const validateStep5 = () => {
+    const newErrors = {}
+    
+    if (equipamiento.length === 0) {
+      newErrors.equipamiento = 'Selecciona al menos una opción'
+    }
     
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -120,48 +131,117 @@ export default function RegisterScreen({ navigation }) {
     } else if (step === 3 && validateStep3()) {
       setStep(4)
     } else if (step === 4 && validateStep4()) {
+      setStep(5)
+    } else if (step === 5 && validateStep5()) {
       handleRegister()
+    }
+  }
+
+  const toggleEquipamiento = (item) => {
+    // Si selecciona "Sin material", limpiar todo lo demás
+    if (item === 'Sin material') {
+      setEquipamiento(['Sin material'])
+      return
+    }
+    
+    // Si ya tiene "Sin material" y selecciona otra cosa, removerlo
+    if (equipamiento.includes('Sin material')) {
+      setEquipamiento([item])
+      return
+    }
+    
+    // Toggle normal
+    if (equipamiento.includes(item)) {
+      setEquipamiento(equipamiento.filter(e => e !== item))
+    } else {
+      setEquipamiento([...equipamiento, item])
     }
   }
 
   const handleRegister = async () => {
     setLoading(true)
     try {
+      console.log('=== INICIANDO REGISTRO ===')
+      
       // 1. Registrar usuario en Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: email.trim(),
         password: password,
       })
 
-      if (authError) throw authError
+      if (authError) {
+        console.error('❌ Error en Auth:', authError)
+        throw authError
+      }
+
+      if (!authData.user) {
+        throw new Error('No se pudo crear el usuario en Authentication')
+      }
+
+      console.log('✅ Usuario creado en Auth:', authData.user.id)
 
       // 2. Guardar información adicional del usuario
-      const { error: profileError } = await supabase
-        .from('usuarios_info')
-        .insert([{
-          user_id: authData.user.id,
-          nombre_completo: nombreCompleto,
-          edad: parseInt(edad),
-          genero: genero,
-          peso_actual: parseFloat(peso),
-          altura: parseFloat(altura),
-          objetivo: objetivo,
-          nivel: nivel,
-          dias_semana: parseInt(diasSemana),
-          tiempo_sesion: parseInt(tiempoSesion),
-          lugar_entrenamiento: lugarEntrenamiento,
-        }])
+      const perfilData = {
+        user_id: authData.user.id,
+        nombre_completo: nombreCompleto.trim(),
+        edad: parseInt(edad),
+        genero: genero,
+        peso_actual: parseFloat(peso),
+        altura: parseFloat(altura),
+        objetivo: objetivo,
+        dias_semana: parseInt(diasSemana),
+        tiempo_sesion: parseInt(tiempoSesion),
+        lugar_entrenamiento: lugarEntrenamiento,
+        equipamiento: equipamiento, // Array directo para text[]
+      }
 
-      if (profileError) throw profileError
+      console.log('📝 Intentando guardar perfil:', JSON.stringify(perfilData, null, 2))
+
+      const { data: insertData, error: profileError } = await supabase
+        .from('usuarios_info')
+        .insert([perfilData])
+        .select()
+
+      if (profileError) {
+        console.error('❌ Error guardando en usuarios_info:', profileError)
+        console.error('Detalles del error:', JSON.stringify(profileError, null, 2))
+        throw new Error(`Error al guardar perfil: ${profileError.message}`)
+      }
+
+      console.log('✅ Perfil guardado exitosamente:', insertData)
+
+      // Hacer login automático después del registro
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password: password,
+      })
+
+      if (signInError) {
+        console.log('⚠️ Error al iniciar sesión automática:', signInError)
+        // No es crítico, el usuario puede hacer login manualmente
+      } else {
+        console.log('✅ Sesión iniciada automáticamente')
+      }
 
       Alert.alert(
         '¡Registro exitoso!', 
-        'Tu cuenta ha sido creada. Por favor verifica tu email.',
-        [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
+        'Bienvenido a FitFlow',
+        [{ 
+          text: 'Comenzar', 
+          onPress: () => {
+            // El AuthProvider detectará la sesión y navegará automáticamente
+            // o forzamos la navegación si es necesario
+            navigation.replace('Dashboard')
+          }
+        }]
       )
       
     } catch (error) {
-      Alert.alert('Error', error.message)
+      console.error('❌ ERROR GENERAL:', error)
+      Alert.alert(
+        'Error en el registro', 
+        error.message || 'No se pudo completar el registro. Por favor intenta de nuevo.'
+      )
     } finally {
       setLoading(false)
     }
@@ -170,7 +250,7 @@ export default function RegisterScreen({ navigation }) {
   const renderStep1 = () => (
     <View style={styles.stepContainer}>
       <Text style={styles.stepTitle}>Crea tu cuenta</Text>
-      <Text style={styles.stepSubtitle}>Paso 1 de 4</Text>
+      <Text style={styles.stepSubtitle}>Paso 1 de 5</Text>
 
       <AuthInput
         label="Email"
@@ -205,7 +285,7 @@ export default function RegisterScreen({ navigation }) {
   const renderStep2 = () => (
     <View style={styles.stepContainer}>
       <Text style={styles.stepTitle}>Cuéntanos sobre ti</Text>
-      <Text style={styles.stepSubtitle}>Paso 2 de 4</Text>
+      <Text style={styles.stepSubtitle}>Paso 2 de 5</Text>
 
       <AuthInput
         label="Nombre completo"
@@ -249,7 +329,7 @@ export default function RegisterScreen({ navigation }) {
   const renderStep3 = () => (
     <View style={styles.stepContainer}>
       <Text style={styles.stepTitle}>Datos físicos</Text>
-      <Text style={styles.stepSubtitle}>Paso 3 de 4</Text>
+      <Text style={styles.stepSubtitle}>Paso 3 de 5</Text>
 
       <AuthInput
         label="Peso actual (kg)"
@@ -274,7 +354,7 @@ export default function RegisterScreen({ navigation }) {
   const renderStep4 = () => (
     <View style={styles.stepContainer}>
       <Text style={styles.stepTitle}>Tus objetivos</Text>
-      <Text style={styles.stepSubtitle}>Paso 4 de 4</Text>
+      <Text style={styles.stepSubtitle}>Paso 4 de 5</Text>
 
       <Text style={styles.label}>¿Cuál es tu objetivo principal?</Text>
       <View style={styles.optionsColumn}>
@@ -304,26 +384,6 @@ export default function RegisterScreen({ navigation }) {
         />
       </View>
       {errors.objetivo && <Text style={styles.errorText}>{errors.objetivo}</Text>}
-
-      <Text style={styles.label}>¿Cuál es tu nivel?</Text>
-      <View style={styles.optionsRow}>
-        <OptionButton 
-          title="Principiante" 
-          selected={nivel === 'Principiante'}
-          onPress={() => setNivel('Principiante')}
-        />
-        <OptionButton 
-          title="Intermedio" 
-          selected={nivel === 'Intermedio'}
-          onPress={() => setNivel('Intermedio')}
-        />
-        <OptionButton 
-          title="Avanzado" 
-          selected={nivel === 'Avanzado'}
-          onPress={() => setNivel('Avanzado')}
-        />
-      </View>
-      {errors.nivel && <Text style={styles.errorText}>{errors.nivel}</Text>}
 
       <AuthInput
         label="¿Cuántos días a la semana entrenarás?"
@@ -365,6 +425,82 @@ export default function RegisterScreen({ navigation }) {
     </View>
   )
 
+  const renderStep5 = () => (
+    <View style={styles.stepContainer}>
+      <Text style={styles.stepTitle}>Tu equipamiento</Text>
+      <Text style={styles.stepSubtitle}>Paso 5 de 5</Text>
+
+      <Text style={styles.labelWithEmoji}>
+        💪 ¿Qué equipo de entrenamiento tienes disponible?
+      </Text>
+      <Text style={styles.helperText}>
+        Selecciona todo lo que tengas. ¡No hay excusas para no entrenar!
+      </Text>
+
+      <View style={styles.equipmentGrid}>
+        <EquipmentButton 
+          title="🏋️ Mancuernas" 
+          selected={equipamiento.includes('Mancuernas')}
+          onPress={() => toggleEquipamiento('Mancuernas')}
+        />
+        <EquipmentButton 
+          title="🎯 Bandas elásticas" 
+          selected={equipamiento.includes('Bandas elásticas')}
+          onPress={() => toggleEquipamiento('Bandas elásticas')}
+        />
+        <EquipmentButton 
+          title="⚫ Pesa rusa" 
+          selected={equipamiento.includes('Pesa rusa')}
+          onPress={() => toggleEquipamiento('Pesa rusa')}
+        />
+        <EquipmentButton 
+          title="🎒 Bolso con peso" 
+          selected={equipamiento.includes('Bolso con peso')}
+          onPress={() => toggleEquipamiento('Bolso con peso')}
+        />
+        <EquipmentButton 
+          title="🏋️‍♀️ Barra y discos" 
+          selected={equipamiento.includes('Barra y discos')}
+          onPress={() => toggleEquipamiento('Barra y discos')}
+        />
+        <EquipmentButton 
+          title="📦 Banco" 
+          selected={equipamiento.includes('Banco')}
+          onPress={() => toggleEquipamiento('Banco')}
+        />
+        <EquipmentButton 
+          title="🤸 Colchoneta" 
+          selected={equipamiento.includes('Colchoneta')}
+          onPress={() => toggleEquipamiento('Colchoneta')}
+        />
+        <EquipmentButton 
+          title="🪢 Cuerda saltar" 
+          selected={equipamiento.includes('Cuerda saltar')}
+          onPress={() => toggleEquipamiento('Cuerda saltar')}
+        />
+      </View>
+
+      <View style={styles.noEquipmentContainer}>
+        <EquipmentButton 
+          title="💪 Sin material (Solo peso corporal)" 
+          selected={equipamiento.includes('Sin material')}
+          onPress={() => toggleEquipamiento('Sin material')}
+          fullWidth
+          noEquipment
+        />
+      </View>
+
+      {errors.equipamiento && <Text style={styles.errorText}>{errors.equipamiento}</Text>}
+
+      {equipamiento.length > 0 && (
+        <View style={styles.selectedContainer}>
+          <Text style={styles.selectedTitle}>✅ Has seleccionado:</Text>
+          <Text style={styles.selectedText}>{equipamiento.join(', ')}</Text>
+        </View>
+      )}
+    </View>
+  )
+
   return (
     <LinearGradient
       colors={[COLORS.background, COLORS.surface, COLORS.background]}
@@ -377,10 +513,11 @@ export default function RegisterScreen({ navigation }) {
         <ScrollView 
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
           {/* Progress Bar */}
           <View style={styles.progressBar}>
-            {[1, 2, 3, 4].map((s) => (
+            {[1, 2, 3, 4, 5].map((s) => (
               <View 
                 key={s}
                 style={[
@@ -396,6 +533,7 @@ export default function RegisterScreen({ navigation }) {
           {step === 2 && renderStep2()}
           {step === 3 && renderStep3()}
           {step === 4 && renderStep4()}
+          {step === 5 && renderStep5()}
 
           {/* Buttons */}
           <View style={styles.buttonsContainer}>
@@ -409,7 +547,7 @@ export default function RegisterScreen({ navigation }) {
             )}
             
             <Button
-              title={step === 4 ? 'Finalizar' : 'Continuar'}
+              title={step === 5 ? 'Finalizar' : 'Continuar'}
               onPress={handleNextStep}
               loading={loading}
               style={styles.nextButton}
@@ -419,7 +557,7 @@ export default function RegisterScreen({ navigation }) {
           {step === 1 && (
             <Button
               title="¿Ya tienes cuenta? Inicia sesión"
-              onPress={() => navigation.navigate('Login')}
+              onPress={() => navigation.goBack()}
               variant="outline"
               style={styles.loginButton}
             />
@@ -430,7 +568,7 @@ export default function RegisterScreen({ navigation }) {
   )
 }
 
-// Componente para opciones
+// Componente para opciones simples
 function OptionButton({ title, selected, onPress, fullWidth }) {
   return (
     <TouchableOpacity
@@ -445,6 +583,31 @@ function OptionButton({ title, selected, onPress, fullWidth }) {
       <Text style={[
         styles.optionText,
         selected && styles.optionTextSelected
+      ]}>
+        {title}
+      </Text>
+    </TouchableOpacity>
+  )
+}
+
+// Componente especial para equipamiento
+function EquipmentButton({ title, selected, onPress, fullWidth, noEquipment }) {
+  return (
+    <TouchableOpacity
+      style={[
+        styles.equipmentButton,
+        selected && styles.equipmentButtonSelected,
+        fullWidth && styles.equipmentButtonFull,
+        noEquipment && styles.noEquipmentButton,
+        noEquipment && selected && styles.noEquipmentButtonSelected
+      ]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <Text style={[
+        styles.equipmentText,
+        selected && styles.equipmentTextSelected,
+        noEquipment && styles.noEquipmentText
       ]}>
         {title}
       </Text>
@@ -472,7 +635,7 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   progressDot: {
-    width: 40,
+    width: 32,
     height: 4,
     backgroundColor: COLORS.border,
     borderRadius: 2,
@@ -500,6 +663,19 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     marginBottom: 12,
     marginTop: 8,
+  },
+  labelWithEmoji: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: 8,
+    marginTop: 8,
+  },
+  helperText: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    marginBottom: 20,
+    lineHeight: 18,
   },
   optionsRow: {
     flexDirection: 'row',
@@ -535,6 +711,84 @@ const styles = StyleSheet.create({
   },
   optionTextSelected: {
     color: COLORS.primary,
+  },
+  equipmentGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 20,
+  },
+  equipmentButton: {
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.surface,
+    minWidth: '47%',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  equipmentButtonFull: {
+    width: '100%',
+    minWidth: '100%',
+  },
+  equipmentButtonSelected: {
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primaryDark + '15',
+    shadowColor: COLORS.primary,
+    shadowOpacity: 0.2,
+  },
+  equipmentText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+  },
+  equipmentTextSelected: {
+    color: COLORS.primary,
+    fontWeight: '700',
+  },
+  noEquipmentContainer: {
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  noEquipmentButton: {
+    borderColor: COLORS.textSecondary,
+    backgroundColor: COLORS.background,
+    borderStyle: 'dashed',
+  },
+  noEquipmentButtonSelected: {
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primaryDark + '10',
+    borderStyle: 'solid',
+  },
+  noEquipmentText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  selectedContainer: {
+    backgroundColor: COLORS.primary + '10',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.primary + '30',
+    marginTop: 8,
+  },
+  selectedTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.primary,
+    marginBottom: 6,
+  },
+  selectedText: {
+    fontSize: 13,
+    color: COLORS.text,
+    lineHeight: 20,
   },
   errorText: {
     fontSize: 12,

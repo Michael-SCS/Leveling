@@ -147,16 +147,6 @@ Al continuar usando la app, confirmas que has leído y aceptado estos términos.
 
               <View style={styles.textContainerRight}>
                 <Text style={styles.userName} numberOfLines={1}>{userInfo?.nombre_completo || 'Usuario'}</Text>
-
-                <TouchableOpacity 
-                  style={styles.levelBadge} 
-                  onPress={showLevelOptions}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.levelEmoji}>🏆</Text>
-                  <Text style={styles.levelText}>{userInfo?.nivel || 'Sin Nivel'}</Text>
-                  {puedeSubir && <View style={styles.redDot} />}
-                </TouchableOpacity>
               </View>
             </View>
           </View>

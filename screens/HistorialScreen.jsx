@@ -193,21 +193,6 @@ const formatearHora = (hora) => {
 
         {/* Grid de Estadísticas Principales - Estilo Card Horizontal */}
         <View style={styles.statsMainContainer}>
-          {/* XP Total - Card Grande */}
-          <LinearGradient
-            colors={[COLORS.primary, COLORS.primary + 'dd']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.xpCardLarge}
-          >
-            <View style={styles.xpCardContent}>
-              <Text style={styles.xpEmoji}>✨</Text>
-              <View style={styles.xpInfo}>
-                <Text style={styles.xpLabel}>XP Total Ganada</Text>
-                <Text style={styles.xpValue}>{estadisticas.totalXP.toLocaleString()} XP</Text>
-              </View>
-            </View>
-          </LinearGradient>
 
           {/* Stats Grid 2x2 */}
           <View style={styles.statsGrid}>
