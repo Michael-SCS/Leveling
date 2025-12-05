@@ -7,9 +7,8 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native'
 import { COLORS } from '../constants/colors'
 import { supabase } from '../lib/supabase'
@@ -51,9 +50,9 @@ export default function RutinasScreen({ navigation }) {
   // ==================== FUNCIONES DE COLOR Y ESTILO ====================
   const getNivelColor = (nivel) => {
     switch (nivel) {
-      case 'Principiante': return '#4ECDC4'
-      case 'Intermedio': return '#FFD93D'
-      case 'Avanzado': return '#FF6B6B'
+      case 'Principiante': return '#00a2ffff'
+      case 'Intermedio': return '#ffcc00ff'
+      case 'Avanzado': return '#FF0000ff'
       default: return COLORS.primary
     }
   }
@@ -61,36 +60,34 @@ export default function RutinasScreen({ navigation }) {
   const getChipColor = (categoria) => {
     switch (categoria) {
       // Filtros de nivel
-      case 'Principiante': return '#4ECDC4'
-      case 'Intermedio': return '#FFD93D'
-      case 'Avanzado': return '#FF6B6B'
+      case 'Principiante': return '#00a2ffff'
+      case 'Intermedio': return '#ffcc00ff'
+      case 'Avanzado': return '#ff0000ff'
       // Filtros de equipo
-      case 'Sin Equipo': return '#7ED957'
-      case 'Mancuernas': return '#45B7D1'
-      case 'Banda Elástica': return '#A55EEA'
+      case 'Sin Equipo': return '#00b7ffff'
+      case 'Con Equipo': return '#00b7ffff'
       // Etiquetas de información
-      case 'Cuerpo Completo': return '#FF6B9D'
-      case 'Piernas': return '#5F9EA0'
-      case 'Brazos': return '#FFA07A'
-      case 'Abdomen': return '#FFB347'
-      case 'Espalda': return '#8A9A5B'
-      case 'Pecho': return '#CD5C5C'
-      case 'Fuerza': return '#DC143C'
-      case 'Resistencia': return '#4169E1'
-      case 'Flexibilidad': return '#32CD32'
-      case 'Cardio': return '#FF4500'
-      case 'Hipertrofia': return '#8B008B'
-      case 'Pérdida de Grasa': return '#FF6347'
-      case 'Fitness General': return '#20B2AA'
-      case 'Casa': return '#FF69B4'
-      case 'Gimnasio': return '#4682B4'
-      case 'Ambos': return '#9370DB'
+      case 'Cuerpo Completo': return '#00b7ffff'
+      case 'Piernas': return '#00b7ffff'
+      case 'Brazos': return '#00b7ffff'
+      case 'Abdomen': return '#00b7ffff'
+      case 'Espalda': return '#00b7ffff'
+      case 'Pecho': return '#00b7ffff'
+      case 'Fuerza': return '#ff004cff'
+      case 'Resistencia': return '#ff004cff'
+      case 'Flexibilidad': return '#ff004cff'
+      case 'Cardio': return '#ff004cff'
+      case 'Hipertrofia': return '#ff004cff'
+      case 'Pérdida de Grasa': return '#ff004cff'
+      case 'Fitness General': return '#ff004cff'
+      case 'Casa': return '#ffc8efff'
+      case 'Gimnasio': return '#001527ff'
       // Defaults
-      case 'Todas':
+      case 'Todos':
       case 'Todos': 
-        return COLORS.card
+        return COLORS.primary
       default: 
-        return COLORS.card
+        return COLORS.primary
     }
   }
 
@@ -111,7 +108,7 @@ export default function RutinasScreen({ navigation }) {
         return { 
           icon: parteIconMap[safeValue] || 'accessibility-new',
           label: safeValue || 'Cuerpo Completo',
-          color: '#FF6B9D' // Rosa para todas las partes del cuerpo
+          color: '#000000ff' // Rosa para todas las partes del cuerpo
         }
       case 'objetivo':
         const objetivoIconMap = {
@@ -126,13 +123,13 @@ export default function RutinasScreen({ navigation }) {
         return { 
           icon: objetivoIconMap[safeValue] || 'whatshot',
           label: safeValue || 'Fitness General',
-          color: '#FF6347' // Naranja rojizo para todos los objetivos
+          color: '#4CAF50' 
         }
       case 'duracion_minutos':
         return { 
           icon: 'timer', 
           label: `${safeValue || '--'} min`,
-          color: '#9C27B0' // Púrpura para duración
+          color: '#2196F3'
         }
       case 'lugar':
         const lugarIconMap = {
@@ -143,14 +140,13 @@ export default function RutinasScreen({ navigation }) {
         return { 
           icon: lugarIconMap[safeValue] || 'location-on',
           label: safeValue || 'Ambos',
-          color: '#4682B4' // Azul para todos los lugares
+          color: '#FB8C00' // Azul para todos los lugares
         }
-      case 'equipo':
-        const equipoLabel = value ? 'Con Equipo' : 'Sin Equipo'
+       case 'equipo':
         return {
           icon: value ? 'hardware' : 'person',
-          label: equipoLabel,
-          color: '#7ED957' // Verde para equipo
+          label: value ? 'Con Equipo' : 'Sin Equipo',
+          color: value ? '#E91E63' : '#9E9E9E' // Rosa para con equipo, gris para sin equipo
         }
       default:
         return { 
@@ -182,10 +178,7 @@ export default function RutinasScreen({ navigation }) {
       if (filtroEquipo === 'Sin Equipo' && rutina.equipo !== false) {
         return false
       }
-      if (filtroEquipo === 'Mancuernas' && rutina.equipo !== true) {
-        return false
-      }
-      if (filtroEquipo === 'Banda Elástica' && rutina.equipo !== true) {
+      if (filtroEquipo === 'Con Equipo' && rutina.equipo !== true) {
         return false
       }
     }
@@ -315,7 +308,7 @@ export default function RutinasScreen({ navigation }) {
           <Text style={styles.subtitle}>Escoge una rutina por nivel</Text>
         </View>
 
-        {/* Barra de búsqueda */}
+        {/* Barra de búsqueda
         <View style={styles.searchContainer}>
           <MaterialIcons name="search" size={20} color={COLORS.textSecondary} />
           <TextInput
@@ -330,7 +323,7 @@ export default function RutinasScreen({ navigation }) {
               <MaterialIcons name="close" size={20} color={COLORS.textSecondary} />
             </TouchableOpacity>
           )}
-        </View>
+        </View> */}
 
         {/* Botón de expandir/colapsar filtros */}
         <TouchableOpacity
@@ -390,7 +383,7 @@ export default function RutinasScreen({ navigation }) {
                 showsHorizontalScrollIndicator={false} 
                 style={styles.filtroScrollView}
               >
-                {['Todos', 'Sin Equipo', 'Mancuernas', 'Banda Elástica'].map((tipo) => (
+                {['Todos', 'Sin Equipo', 'Con Equipo'].map((tipo) => (
                   <TouchableOpacity
                     key={tipo}
                     style={[
