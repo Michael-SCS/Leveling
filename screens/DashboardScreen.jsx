@@ -101,30 +101,41 @@ export default function DashboardScreen({ navigation }) {
         .select('fecha')
         .eq('user_id', userId)
         .order('fecha', { ascending: false })
-      
+
       if (error) {
         console.log('Error cargando historico para streak:', error)
         setStreak(0)
         return
       }
-      
+
       const fechas = (data || []).map((d) => d.fecha).filter(Boolean)
-      const fechasSet = new Set(fechas)
+      const fechasSet = new Set(fechas.map(f => f.substring(0, 10)))
+
       let contador = 0
-      let cursor = new Date()
-      
+      const hoy = new Date()
+      hoy.setHours(0, 0, 0, 0)
+
+      let cursor = new Date(hoy)
+      const hoyStr = hoy.toISOString().substring(0, 10)
+
+      if (fechasSet.has(hoyStr)) {
+        contador = 1
+        cursor.setDate(cursor.getDate() - 1)
+      } else {
+        cursor.setDate(cursor.getDate() - 1)
+      }
+
       while (true) {
-        const dayStr = cursor.toISOString().split('T')[0]
+        const dayStr = cursor.toISOString().substring(0, 10)
+
         if (fechasSet.has(dayStr)) {
           contador += 1
           cursor.setDate(cursor.getDate() - 1)
-        } else {
-          break
-        }
+        } else break
       }
-      
+
       setStreak(contador)
-      
+
       if (contador >= 7) setMotivacion('¡Racha imparable! Eres una máquina 🔥')
       else if (contador >= 3) setMotivacion('¡Excelente consistencia! Sigue así 💪')
       else if (contador === 0) setMotivacion('Hoy es el día perfecto para entrenar ✨')
@@ -138,7 +149,6 @@ export default function DashboardScreen({ navigation }) {
   const loadEntrenamientosData = async () => {
     setLoadingData(true)
     try {
-      // Entrenamientos aleatorios para hoy
       const { data: todosEntrenamientos, error: errorTodos } = await supabase
         .from('rutinas_predefinidas')
         .select('*')
@@ -149,7 +159,6 @@ export default function DashboardScreen({ navigation }) {
       const shuffled = (todosEntrenamientos || []).sort(() => Math.random() - 0.5)
       setEntrenamientosHoy(shuffled.slice(0, 6))
 
-      // Favoritos (los más completados por el usuario)
       if (user) {
         const { data: completados, error: errorCompletados } = await supabase
           .from('entrenamientos_completados')
@@ -157,7 +166,6 @@ export default function DashboardScreen({ navigation }) {
           .eq('user_id', user.id)
 
         if (!errorCompletados && completados && completados.length > 0) {
-          // Contar frecuencias
           const frecuencias = {}
           completados.forEach(item => {
             if (item.rutina_id) {
@@ -165,36 +173,31 @@ export default function DashboardScreen({ navigation }) {
             }
           })
 
-          // Ordenar por frecuencia y obtener top 5
           const topRutinas = Object.entries(frecuencias)
             .sort((a, b) => b[1] - a[1])
             .slice(0, 5)
 
           if (topRutinas.length > 0) {
             const ids = topRutinas.map(([id]) => parseInt(id))
-            
+
             const { data: rutinasFav, error: errorFav } = await supabase
               .from('rutinas_predefinidas')
               .select('*')
               .in('id', ids)
 
             if (!errorFav && rutinasFav) {
-              // Agregar el conteo de veces completadas a cada rutina
               const rutinasConConteo = rutinasFav.map(rutina => ({
                 ...rutina,
-                vecesCompletada: frecuencias[rutina.id] || 0
+                vecesCompletada: frecuencias[rutina.id] || 0,
               }))
-              
-              // Ordenar por veces completada
+
               rutinasConConteo.sort((a, b) => b.vecesCompletada - a.vecesCompletada)
-              
               setFavoritos(rutinasConConteo)
             }
           }
         }
       }
 
-      // Clásicos (entrenamientos rápidos que el usuario no ha hecho)
       const { data: clasicosData, error: errorClasicos } = await supabase
         .from('rutinas_predefinidas')
         .select('*')
@@ -206,7 +209,6 @@ export default function DashboardScreen({ navigation }) {
       const clasicosShuffled = (clasicosData || []).sort(() => Math.random() - 0.5)
       setClasicos(clasicosShuffled.slice(0, 5))
 
-      // Actividad reciente (últimas 3 sesiones)
       if (user) {
         const { data: recenteData, error: errorReciente } = await supabase
           .from('entrenamientos_completados')
@@ -229,7 +231,6 @@ export default function DashboardScreen({ navigation }) {
           setActividadReciente(recenteData || [])
         }
       }
-
     } catch (err) {
       console.log('Error cargando entrenamientos:', err)
     } finally {
@@ -243,7 +244,20 @@ export default function DashboardScreen({ navigation }) {
 
   const getFechaHoy = () => {
     const dias = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
-    const meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+    const meses = [
+      'Enero',
+      'Febrero',
+      'Marzo',
+      'Abril',
+      'Mayo',
+      'Junio',
+      'Julio',
+      'Agosto',
+      'Septiembre',
+      'Octubre',
+      'Noviembre',
+      'Diciembre',
+    ]
     const hoy = new Date()
     return `${dias[hoy.getDay()]}, ${hoy.getDate()} de ${meses[hoy.getMonth()]}`
   }
@@ -258,27 +272,23 @@ export default function DashboardScreen({ navigation }) {
     const fechaEntrenamiento = new Date(date)
     fechaEntrenamiento.setHours(0, 0, 0, 0)
 
-    if (fechaEntrenamiento.getTime() === hoy.getTime()) {
-      return 'Hoy'
-    } else if (fechaEntrenamiento.getTime() === ayer.getTime()) {
-      return 'Ayer'
-    } else {
-      const diffTime = Math.abs(hoy - fechaEntrenamiento)
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-      if (diffDays <= 7) {
-        return `Hace ${diffDays} días`
-      }
-      return date.toLocaleDateString('es-ES', {
-        day: 'numeric',
-        month: 'short'
-      }).replace('.', '')
-    }
+    if (fechaEntrenamiento.getTime() === hoy.getTime()) return 'Hoy'
+    if (fechaEntrenamiento.getTime() === ayer.getTime()) return 'Ayer'
+
+    const diffTime = Math.abs(hoy - fechaEntrenamiento)
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+
+    if (diffDays <= 7) return `Hace ${diffDays} días`
+
+    return date
+      .toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
+      .replace('.', '')
   }
 
   const formatearHora = (fecha) => {
     return new Date(fecha).toLocaleTimeString('es-ES', {
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     })
   }
 
@@ -321,6 +331,7 @@ export default function DashboardScreen({ navigation }) {
         <Text style={styles.rutinaNombre} numberOfLines={2}>
           {item.nombre}
         </Text>
+
         <View style={styles.rutinaMetaRow}>
           <View style={styles.rutinaMetaItem}>
             <MaterialIcons name="schedule" size={12} color={COLORS.white} />
@@ -367,7 +378,7 @@ export default function DashboardScreen({ navigation }) {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header con saludo y fecha */}
+        {/* HEADER */}
         <Animated.View
           style={[
             styles.header,
@@ -385,9 +396,10 @@ export default function DashboardScreen({ navigation }) {
               </Text>
               <Text style={styles.fecha}>{getFechaHoy()}</Text>
             </View>
+
             <TouchableOpacity
               style={styles.profileButton}
-              onPress={() => navigation.navigate('Profile')}
+              onPress={() => navigation.navigate('Perfil')}
             >
               <LinearGradient
                 colors={[COLORS.primary, '#8B7FE8']}
@@ -399,15 +411,8 @@ export default function DashboardScreen({ navigation }) {
           </View>
         </Animated.View>
 
-        {/* Racha con fuego */}
-        <Animated.View
-          style={[
-            styles.rachaContainer,
-            {
-              opacity: fadeAnim,
-            },
-          ]}
-        >
+        {/* RACHA */}
+        <Animated.View style={[styles.rachaContainer, { opacity: fadeAnim }]}>
           <LinearGradient
             colors={['#FF6B6B', '#EE5A6F']}
             start={{ x: 0, y: 0 }}
@@ -432,7 +437,7 @@ export default function DashboardScreen({ navigation }) {
           </LinearGradient>
         </Animated.View>
 
-        {/* Opciones para hoy */}
+        {/* OPCIONES PARA HOY */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <View>
@@ -464,7 +469,7 @@ export default function DashboardScreen({ navigation }) {
           )}
         </View>
 
-        {/* Tus entrenamientos favoritos */}
+        {/* FAVORITOS */}
         {favoritos.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -490,7 +495,7 @@ export default function DashboardScreen({ navigation }) {
           </View>
         )}
 
-        {/* Entrenamientos clásicos */}
+        {/* CLÁSICOS */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <View>
@@ -525,7 +530,7 @@ export default function DashboardScreen({ navigation }) {
           )}
         </View>
 
-        {/* Actividad Reciente */}
+        {/* ACTIVIDAD RECIENTE */}
         {actividadReciente.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -546,34 +551,38 @@ export default function DashboardScreen({ navigation }) {
               {actividadReciente.map((sesion) => (
                 <View key={sesion.id} style={styles.sesionCard}>
                   <View style={styles.sesionHeader}>
-                    <View style={styles.sesionFecha}>
-                      <MaterialIcons name="calendar-today" size={14} color={COLORS.primary} />
-                      <Text style={styles.sesionFechaText}>{formatearFecha(sesion.fecha)}</Text>
-                      <Text style={styles.sesionHora}>{formatearHora(sesion.fecha)}</Text>
-                    </View>
+                    
                     {sesion.xp_ganada > 0 && (
                       <View style={styles.sesionXpBadge}>
                         <Text style={styles.sesionXpText}>+{sesion.xp_ganada} XP</Text>
                       </View>
                     )}
                   </View>
-                  
+
                   <Text style={styles.sesionNombre} numberOfLines={1}>
                     {sesion.rutinas_predefinidas?.nombre || 'Rutina'}
                   </Text>
-                  
+
                   <View style={styles.sesionStats}>
                     <View style={styles.sesionStatItem}>
                       <MaterialIcons name="schedule" size={14} color={COLORS.textSecondary} />
                       <Text style={styles.sesionStatText}>{sesion.duracion_minutos} min</Text>
                     </View>
                     <View style={styles.sesionStatItem}>
-                      <MaterialIcons name="local-fire-department" size={14} color="#FF6B6B" />
-                      <Text style={styles.sesionStatText}>{sesion.calorias_quemadas || 0} kcal</Text>
+                      <MaterialIcons
+                        name="local-fire-department"
+                        size={14}
+                        color="#FF6B6B"
+                      />
+                      <Text style={styles.sesionStatText}>
+                        {sesion.calorias_quemadas || 0} kcal
+                      </Text>
                     </View>
                     {sesion.rutinas_predefinidas?.nivel && (
                       <View style={styles.sesionNivelBadge}>
-                        <Text style={styles.sesionNivelText}>{sesion.rutinas_predefinidas.nivel}</Text>
+                        <Text style={styles.sesionNivelText}>
+                          {sesion.rutinas_predefinidas.nivel}
+                        </Text>
                       </View>
                     )}
                   </View>

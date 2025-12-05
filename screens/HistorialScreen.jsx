@@ -51,19 +51,21 @@ export default function HistorialScreen({ navigation }) {
       const { data: entrenamientosData, error } = await supabase
         .from('entrenamientos_completados')
         .select(`
-          id,
-          fecha,
-          duracion_minutos,
-          calorias_quemadas,
-          xp_ganada,
-          ejercicios_completados,
-          rutina_id,
-          rutinas_predefinidas (
-            nombre,
-            imagen_url,
-            nivel
-          )
-        `)
+  id,
+  fecha,
+  hora,
+  duracion_minutos,
+  calorias_quemadas,
+  xp_ganada,
+  ejercicios_completados,
+  rutina_id,
+  rutinas_predefinidas (
+    nombre,
+    imagen_url,
+    nivel
+  )
+`)
+
         .eq('user_id', user.id)
         .order('fecha', { ascending: false })
         .limit(50)
@@ -138,36 +140,25 @@ export default function HistorialScreen({ navigation }) {
     setRefreshing(true)
     loadHistorial()
   }
+const formatearFecha = (fecha) => {
+  if (!fecha) return "";
 
-  const formatearFecha = (fecha) => {
-    const date = new Date(fecha)
-    const hoy = new Date()
-    hoy.setHours(0, 0, 0, 0)
-    const ayer = new Date(hoy)
-    ayer.setDate(ayer.getDate() - 1)
+  // Supabase devuelve fecha tipo 'YYYY-MM-DD'
+  const [year, month, day] = fecha.split('-');
 
-    const fechaEntrenamiento = new Date(date)
-    fechaEntrenamiento.setHours(0, 0, 0, 0)
+  // Convertir el mes a abreviatura en español
+  const meses = ["ENE","FEB","MAR","ABR","MAY","JUN","JUL","AGO","SEP","OCT","NOV","DIC"];
+  const mesAbreviado = meses[Number(month)-1];
 
-    if (fechaEntrenamiento.getTime() === hoy.getTime()) {
-      return 'Hoy'
-    } else if (fechaEntrenamiento.getTime() === ayer.getTime()) {
-      return 'Ayer'
-    } else {
-      return date.toLocaleDateString('es-ES', {
-        day: 'numeric',
-        month: 'short',
-        year: date.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
-      }).replace('.', '').toUpperCase()
-    }
-  }
+  return `${day} ${mesAbreviado} ${year}`;
+};
 
-  const formatearHora = (fecha) => {
-    return new Date(fecha).toLocaleTimeString('es-ES', {
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-  }
+const formatearHora = (hora) => {
+  if (!hora) return "";
+
+  // Supabase devuelve hora tipo 'HH:MM:SS', queremos solo HH:MM
+  return hora.substring(0,5); 
+};
 
   const toggleExpand = (id) => {
     setExpandido(expandido === id ? null : id)
@@ -277,7 +268,7 @@ export default function HistorialScreen({ navigation }) {
               <Text style={styles.emptyText}>
                 Completa tu primer entrenamiento para verlo aquí
               </Text>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.emptyButton}
                 onPress={() => navigation.navigate('Home')}
               >
@@ -305,7 +296,7 @@ export default function HistorialScreen({ navigation }) {
                         <MaterialIcons name="calendar-today" size={12} color={COLORS.primary} />
                         <Text style={styles.fechaDia}>{formatearFecha(entrenamiento.fecha)}</Text>
                       </View>
-                      <Text style={styles.fechaHora}>{formatearHora(entrenamiento.fecha)}</Text>
+                      <Text style={styles.fechaHora}>{formatearHora(entrenamiento.hora)}</Text>
                     </View>
 
                     <View style={styles.headerRight}>

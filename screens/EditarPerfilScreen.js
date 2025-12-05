@@ -2,17 +2,17 @@ import { MaterialIcons } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useEffect, useState } from 'react'
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native'
 import { COLORS } from '../constants/colors'
 import { supabase } from '../lib/supabase'
@@ -215,6 +215,12 @@ export default function EditarPerfilScreen({ navigation }) {
                   onPress={() => setGenero('Femenino')}
                 >
                   <Text style={[styles.genderText, genero === 'Femenino' && styles.genderTextActive]}>F</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.genderButton, genero === 'Prefiero no decirlo' && styles.genderButtonActive]}
+                  onPress={() => setGenero('Prefiero no decirlo')}
+                >
+                  <Text style={[styles.genderText, genero === 'Prefiero no decirlo' && styles.genderTextActive]}>N</Text>
                 </TouchableOpacity>
               </View>
             </View>

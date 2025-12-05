@@ -87,20 +87,20 @@ export default function RutinaDetalleScreen({ route, navigation }) {
       const { data: ejerciciosData, error: ejerciciosError } = await supabase
         .from('rutinas_ejercicios')
         .select(`
-          id,
-          orden,
-          series,
-          repeticiones,
-          tiempo_descanso_segundos,
-          ejercicios (
-            id,
-            nombre,
-            grupo_muscular,
-            instrucciones,
-            gif_url,
-            video_url
-          )
-        `)
+          id,
+          orden,
+          series,
+          repeticiones,
+          tiempo_descanso_segundos,
+          ejercicios (
+            id,
+            nombre,
+            grupo_muscular,
+            instrucciones,
+            gif_url,
+            video_url
+          )
+        `)
         .eq('rutina_id', rutinaId)
         .order('orden', { ascending: true })
 
@@ -171,79 +171,93 @@ export default function RutinaDetalleScreen({ route, navigation }) {
     setMostrarFeedback(true)
   }
 
-  const guardarEntrenamientoConFeedback = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Usuario no autenticado')
+  const guardarEntrenamientoConFeedback = async (omitido = false) => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Usuario no autenticado')
 
-      const ejerciciosIds = ejercicios
-        .filter(e => ejerciciosCompletados.has(e.id))
-        .map(e => e.ejercicios.id)
+    const ejerciciosIds = ejercicios
+      .filter(e => ejerciciosCompletados.has(e.id))
+      .map(e => e.ejercicios.id)
 
-      const { error } = await supabase
-        .from('entrenamientos_completados')
-        .insert([{
-          user_id: user.id,
-          rutina_id: rutinaId,
-          duracion_minutos: datosEntrenamiento.duracionMinutos,
-          calorias_quemadas: datosEntrenamiento.calorias,
-          xp_ganada: datosEntrenamiento.xpGanada,
-          ejercicios_completados: ejerciciosIds,
-          fecha: new Date().toISOString(),
-          calificacion: calificacion,
-          comentario: comentario || null
-        }])
+    const calificacionFinal = calificacion > 0 ? calificacion : null;
+    const comentarioFinal = comentario || null;
 
-      if (error) throw error
+    // 🎯 CÁLCULO DE FECHA Y HORA EN ZONA HORARIA LOCAL
+    const now = new Date();
 
-      // 📧 Enviar feedback por correo si hay calificación o comentario
-      if (calificacion > 0 || comentario) {
-        enviarFeedbackPorCorreo(user, calificacion, comentario)
-      }
+    // Formatear la FECHA (YYYY-MM-DD) para la columna 'fecha' (tipo DATE).
+    const fechaActual = now.toLocaleDateString('en-CA', { // 'en-CA' asegura YYYY-MM-DD
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).replace(/[^0-9-]/g, '');
 
-      setMostrarFeedback(false)
-      setEntrenandoActivo(false)
-      setTiempoInicio(null)
+    // Formatear la HORA (HH:MM:SS) para la columna 'hora_finalizacion' (tipo TIME).
+    const horaActual = now.toLocaleTimeString('es-ES', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false 
+    });
+    
+    console.log(`LOG Fecha a guardar: ${fechaActual} | Hora a guardar: ${horaActual}`); 
+    // FIN DEL CÁLCULO 🎯
 
-      // Mostrar success toast con animación
-      setMostrarSuccess(true)
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 400,
-          useNativeDriver: true,
-        }),
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          friction: 8,
-          tension: 40,
-          useNativeDriver: true,
-        }),
-      ]).start()
+    const { error } = await supabase
+      .from('entrenamientos_completados')
+      .insert([{
+        user_id: user.id,
+        rutina_id: rutinaId,
+        duracion_minutos: datosEntrenamiento.duracionMinutos,
+        calorias_quemadas: datosEntrenamiento.calorias,
+        xp_ganada: datosEntrenamiento.xpGanada,
+        ejercicios_completados: ejerciciosIds,
+        
+        // 🚀 GUARDAMOS LA FECHA Y HORA LOCALES
+        fecha: fechaActual, 
+        hora: horaActual, // <-- ¡Nueva columna!
+        
+        calificacion: calificacionFinal,
+        comentario: comentarioFinal
+      }])
 
-      setTimeout(() => {
-        Animated.parallel([
-          Animated.timing(fadeAnim, {
-            toValue: 0,
-            duration: 300,
-            useNativeDriver: true,
-          }),
-          Animated.timing(scaleAnim, {
-            toValue: 0.8,
-            duration: 300,
-            useNativeDriver: true,
-          }),
-        ]).start(() => {
-          setMostrarSuccess(false)
-          navigation.goBack()
-        })
-      }, 3000)
+    if (error) throw error
 
-    } catch (error) {
-      console.log('Error guardando entrenamiento:', error)
-      Alert.alert('Error', 'No se pudo guardar el entrenamiento')
+    // 📧 Enviar feedback por correo
+    if (calificacionFinal || comentarioFinal) {
+      enviarFeedbackPorCorreo(user, calificacionFinal, comentarioFinal) 
     }
+
+    setMostrarFeedback(false)
+    setEntrenandoActivo(false)
+    setTiempoInicio(null)
+    setCalificacion(0);
+    setComentario('');
+
+    // Mostrar success toast con animación... (El código de animación se mantiene)
+    setMostrarSuccess(true)
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
+      Animated.spring(scaleAnim, { toValue: 1, friction: 8, tension: 40, useNativeDriver: true }),
+    ]).start()
+
+    setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(fadeAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
+        Animated.timing(scaleAnim, { toValue: 0.8, duration: 300, useNativeDriver: true }),
+      ]).start(() => {
+        setMostrarSuccess(false)
+        navigation.goBack()
+      })
+    }, 3000)
+
+  } catch (error) {
+    console.log('LOG Error guardando entrenamiento:', error)
+    // El error de Supabase (PGRST204) está aquí
+    Alert.alert('Error', 'No se pudo guardar el entrenamiento')
   }
+}
 
   const enviarFeedbackPorCorreo = async (user, calificacion, comentario) => {
     try {
@@ -256,38 +270,39 @@ export default function RutinaDetalleScreen({ route, navigation }) {
         .single()
 
       const nombreUsuario = perfil?.nombre_completo || user.email || 'Usuario'
-      const estrellas = '⭐'.repeat(calificacion)
+      const estrellas = calificacion ? '⭐'.repeat(calificacion) : 'N/A'
+      const calificacionTexto = calificacion ? `${calificacion}/5` : 'Omitida';
 
-      const asunto = `Nuevo Feedback: ${estrellas} (${calificacion}/5) - ${rutina?.nombre}`
+      const asunto = `Nuevo Feedback: ${estrellas} (${calificacionTexto}) - ${rutina?.nombre}`
 
       const mensaje = `
 <!DOCTYPE html>
 <html>
 <head>
-  <style>
-    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-    .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 10px; text-align: center; }
-    .content { background: #f9f9f9; padding: 30px; border-radius: 10px; margin-top: 20px; }
-    .rating { font-size: 32px; margin: 10px 0; }
-    .info { background: white; padding: 15px; border-radius: 8px; margin: 10px 0; }
-    .label { font-weight: bold; color: #667eea; }
-    .comment { background: white; padding: 20px; border-left: 4px solid #667eea; margin-top: 20px; font-style: italic; }
-    .footer { text-align: center; margin-top: 30px; color: #999; font-size: 12px; }
-  </style>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 10px; text-align: center; }
+    .content { background: #f9f9f9; padding: 30px; border-radius: 10px; margin-top: 20px; }
+    .rating { font-size: 32px; margin: 10px 0; }
+    .info { background: white; padding: 15px; border-radius: 8px; margin: 10px 0; }
+    .label { font-weight: bold; color: #667eea; }
+    .comment { background: white; padding: 20px; border-left: 4px solid #667eea; margin-top: 20px; font-style: italic; }
+    .footer { text-align: center; margin-top: 30px; color: #999; font-size: 12px; }
+  </style>
 </head>
 <body>
-  <div class="container">
-    <div class="header">
-      <h1>💪 Nuevo Feedback de Entrenamiento</h1>
-    </div>
-    
-    <div class="content">
-      <div class="info">
-        <p><span class="label">👤 Usuario:</span> ${nombreUsuario}</p>
-        <p><span class="label">📧 Email:</span> ${user.email}</p>
-        <p><span class="label">🏋️ Rutina:</span> ${rutina?.nombre}</p>
-        <p><span class="label">📅 Fecha:</span> ${new Date().toLocaleDateString('es-ES', {
+  <div class="container">
+    <div class="header">
+      <h1>💪 Nuevo Feedback de Entrenamiento</h1>
+    </div>
+    
+    <div class="content">
+      <div class="info">
+        <p><span class="label">👤 Usuario:</span> ${nombreUsuario}</p>
+        <p><span class="label">📧 Email:</span> ${user.email}</p>
+        <p><span class="label">🏋️ Rutina:</span> ${rutina?.nombre}</p>
+        <p><span class="label">📅 Fecha:</span> ${new Date().toLocaleDateString('es-ES', {
         weekday: 'long',
         year: 'numeric',
         month: 'long',
@@ -295,37 +310,37 @@ export default function RutinaDetalleScreen({ route, navigation }) {
         hour: '2-digit',
         minute: '2-digit'
       })}</p>
-      </div>
+      </div>
 
-      <div class="info">
-        <p><span class="label">Calificación:</span></p>
-        <div class="rating">${estrellas} (${calificacion}/5)</div>
-      </div>
+      <div class="info">
+        <p><span class="label">Calificación:</span></p>
+        <div class="rating">${estrellas} (${calificacionTexto})</div>
+      </div>
 
-      ${comentario ? `
-      <div class="comment">
-        <p><span class="label">💬 Comentario del usuario:</span></p>
-        <p>"${comentario}"</p>
-      </div>
-      ` : '<p style="text-align: center; color: #999;">Sin comentarios adicionales</p>'}
+      ${comentario ? `
+      <div class="comment">
+        <p><span class="label">💬 Comentario del usuario:</span></p>
+        <p>"${comentario}"</p>
+      </div>
+      ` : '<p style="text-align: center; color: #999;">Sin comentarios adicionales</p>'}
 
-      <div class="info">
-        <p><span class="label">📊 Estadísticas del entrenamiento:</span></p>
-        <p>⏱️ Duración: ${datosEntrenamiento.duracionMinutos} minutos</p>
-        <p>🔥 Calorías: ${datosEntrenamiento.calorias} kcal</p>
-        <p>✅ Ejercicios completados: ${ejerciciosCompletados.size}/${ejercicios.length}</p>
-        <p>⭐ XP ganada: ${datosEntrenamiento.xpGanada}</p>
-      </div>
-    </div>
+      <div class="info">
+        <p><span class="label">📊 Estadísticas del entrenamiento:</span></p>
+        <p>⏱️ Duración: ${datosEntrenamiento.duracionMinutos} minutos</p>
+        <p>🔥 Calorías: ${datosEntrenamiento.calorias} kcal</p>
+        <p>✅ Ejercicios completados: ${ejerciciosCompletados.size}/${ejercicios.length}</p>
+        <p>⭐ XP ganada: ${datosEntrenamiento.xpGanada}</p>
+      </div>
+    </div>
 
-    <div class="footer">
-      <p>Este es un correo automático del sistema de feedback de FitApp</p>
-      <p>No respondas a este correo</p>
-    </div>
-  </div>
+    <div class="footer">
+      <p>Este es un correo automático del sistema de feedback de FitApp</p>
+      <p>No respondas a este correo</p>
+    </div>
+  </div>
 </body>
 </html>
-    `
+    `
 
       console.log('📨 Invocando Edge Function...')
       console.log('📧 Destinatario:', 'Bekurooficial@gmail.com')
@@ -588,13 +603,15 @@ export default function RutinaDetalleScreen({ route, navigation }) {
                   <TouchableOpacity
                     style={styles.feedbackButtonSecondary}
                     onPress={() => {
-                      setMostrarFeedback(false)
-                      guardarEntrenamientoConFeedback()
+                      // Al omitir, se fuerzan los estados a 0/vacío
+                      setCalificacion(0)
+                      setComentario('')
+                      // La función de guardado detectará calificacion=0 y enviará NULL
+                      guardarEntrenamientoConFeedback(true)
                     }}
                   >
                     <Text style={styles.feedbackButtonSecondaryText}>Omitir</Text>
                   </TouchableOpacity>
-
                   <TouchableOpacity
                     style={[
                       styles.feedbackButtonPrimary,
@@ -689,7 +706,7 @@ const styles = StyleSheet.create({
     top: 50,
     left: 20,
     right: 20,
-    zIndex: 10
+    zIndex: 10,
   },
   backButton: {
     width: 44,
