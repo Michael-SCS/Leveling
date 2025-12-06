@@ -1,11 +1,12 @@
 {
   "expo": {
-    "name": "Leveling Fitness",
-    "slug": "leveling-fitness",
+    "name": "FITFLOW",
+    "slug": "fitflow",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "splash": {
+      "image": "./assets/splash.png",
       "backgroundColor": "#0f172a",
       "resizeMode": "contain"
     },
@@ -13,20 +14,41 @@
       "**/*"
     ],
     "ios": {
+      "icon": "./assets/icon.png",
       "supportsTablet": true,
-      "bundleIdentifier": "com.leveling.fitness"
+      "bundleIdentifier": "com.leveling.fitness",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
+      "icon": "./assets/icon.png",
       "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#0f172a"
       },
-      "package": "com.leveling.fitness"
+      "package": "com.leveling.fitness",
+      "permissions": [],
+      "allowBackup": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/icon.png"
     },
     "plugins": [
-      "expo-font"
-    ]
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#0f172a"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "d51de91a-f14d-40e9-a07d-bf12d9943800"
+      }
+    }
   }
 }

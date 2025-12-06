@@ -16,25 +16,24 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { NavigationContainer } from '@react-navigation/native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { StatusBar } from 'expo-status-bar'
-import { ActivityIndicator, Text, View } from 'react-native'
+import { ActivityIndicator, Platform, Text, View } from 'react-native'
+import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { AuthProvider, useAuth } from './components/AuthProvider'
 import { COLORS } from './constants/colors'
 import DashboardScreen from './screens/DashboardScreen'
+import EditarPerfilScreen from './screens/EditarPerfilScreen'
 import HistorialScreen from './screens/HistorialScreen'
 import LoginScreen from './screens/LoginScreen'
+import NotificacionesScreen from './screens/NotificacionesScreen'
 import PerfilScreen from './screens/PerfilScreen'
 import RegisterScreen from './screens/RegisterScreen'
 import RutinaDetalleScreen from './screens/RutinaDetalleScreen'
 import RutinasScreen from './screens/RutinasScreen'
 
-// ✅ IMPORTA LAS 2 PANTALLAS NUEVAS
-import EditarPerfilScreen from './screens/EditarPerfilScreen'
-import NotificacionesScreen from './screens/NotificacionesScreen'
-
 const Stack = createNativeStackNavigator()
 const Tab = createBottomTabNavigator()
 
-// Navegación por tabs (menú inferior)
+// Navegación por tabs (menú inferior) - CON SAFEAREAVIEW CORREGIDO
 function MainTabs() {
   return (
     <Tab.Navigator
@@ -44,9 +43,15 @@ function MainTabs() {
           backgroundColor: COLORS.surface,
           borderTopColor: COLORS.border,
           borderTopWidth: 1,
-          height: 70,
-          paddingBottom: 10,
+          height: Platform.OS === 'ios' ? 88 : 70, // Más altura en iOS
+          paddingBottom: Platform.OS === 'ios' ? 20 : 10, // Espacio para el notch/home indicator
           paddingTop: 10,
+          position: 'absolute', // Importante para que flote sobre el contenido
+          elevation: 8,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 8,
         },
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.textMuted,
@@ -136,13 +141,11 @@ function Navigation() {
       }}
     >
       {!user ? (
-        // Pantallas de autenticación
         <>
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Register" component={RegisterScreen} />
         </>
       ) : (
-        // Pantallas autenticadas
         <>
           <Stack.Screen name="Dashboard" component={MainTabs} />
           <Stack.Screen 
@@ -153,8 +156,6 @@ function Navigation() {
               animation: 'slide_from_bottom',
             }}
           />
-          
-          {/* ✅ AGREGA ESTAS 2 PANTALLAS NUEVAS */}
           <Stack.Screen 
             name="EditarPerfil" 
             component={EditarPerfilScreen}
@@ -175,7 +176,7 @@ function Navigation() {
   )
 }
 
-// App principal
+// App principal - CON SAFEAREAVIEW PROVIDER
 export default function App() {
   let [fontsLoaded] = useFonts({
     Poppins_400Regular,
@@ -198,11 +199,13 @@ export default function App() {
   }
 
   return (
-    <AuthProvider>
-      <StatusBar style="light" />
-      <NavigationContainer>
-        <Navigation />
-      </NavigationContainer>
-    </AuthProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <StatusBar style="light" />
+        <NavigationContainer>
+          <Navigation />
+        </NavigationContainer>
+      </AuthProvider>
+    </SafeAreaProvider>
   )
 }

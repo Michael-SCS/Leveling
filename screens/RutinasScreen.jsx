@@ -4,16 +4,19 @@ import { useEffect, useState } from 'react'
 import {
   ActivityIndicator,
   Image,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View
 } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { COLORS } from '../constants/colors'
 import { supabase } from '../lib/supabase'
 
 export default function RutinasScreen({ navigation }) {
+  const insets = useSafeAreaInsets() // Hook para obtener los insets del SafeArea
   const [loading, setLoading] = useState(true)
   const [rutinas, setRutinas] = useState([])
   const [filtroNivel, setFiltroNivel] = useState('Todas')
@@ -59,14 +62,11 @@ export default function RutinasScreen({ navigation }) {
 
   const getChipColor = (categoria) => {
     switch (categoria) {
-      // Filtros de nivel
       case 'Principiante': return '#00a2ffff'
       case 'Intermedio': return '#ffcc00ff'
       case 'Avanzado': return '#ff0000ff'
-      // Filtros de equipo
       case 'Sin Equipo': return '#00b7ffff'
       case 'Con Equipo': return '#00b7ffff'
-      // Etiquetas de información
       case 'Cuerpo Completo': return '#00b7ffff'
       case 'Piernas': return '#00b7ffff'
       case 'Brazos': return '#00b7ffff'
@@ -82,9 +82,8 @@ export default function RutinasScreen({ navigation }) {
       case 'Fitness General': return '#ff004cff'
       case 'Casa': return '#ffc8efff'
       case 'Gimnasio': return '#001527ff'
-      // Defaults
       case 'Todos':
-      case 'Todos': 
+      case 'Todas': 
         return COLORS.primary
       default: 
         return COLORS.primary
@@ -108,7 +107,7 @@ export default function RutinasScreen({ navigation }) {
         return { 
           icon: parteIconMap[safeValue] || 'accessibility-new',
           label: safeValue || 'Cuerpo Completo',
-          color: '#000000ff' // Rosa para todas las partes del cuerpo
+          color: '#000000ff'
         }
       case 'objetivo':
         const objetivoIconMap = {
@@ -140,13 +139,13 @@ export default function RutinasScreen({ navigation }) {
         return { 
           icon: lugarIconMap[safeValue] || 'location-on',
           label: safeValue || 'Ambos',
-          color: '#FB8C00' // Azul para todos los lugares
+          color: '#FB8C00'
         }
        case 'equipo':
         return {
           icon: value ? 'hardware' : 'person',
           label: value ? 'Con Equipo' : 'Sin Equipo',
-          color: value ? '#E91E63' : '#9E9E9E' // Rosa para con equipo, gris para sin equipo
+          color: value ? '#E91E63' : '#9E9E9E'
         }
       default:
         return { 
@@ -159,7 +158,6 @@ export default function RutinasScreen({ navigation }) {
 
   // ==================== FILTRADO DE RUTINAS ====================
   const rutinasFiltradas = rutinas.filter((rutina) => {
-    // Filtro de búsqueda por nombre
     if (busqueda.trim() !== '') {
       const nombreLower = rutina.nombre.toLowerCase()
       const busquedaLower = busqueda.toLowerCase()
@@ -168,12 +166,10 @@ export default function RutinasScreen({ navigation }) {
       }
     }
     
-    // Filtro de nivel
     if (filtroNivel !== 'Todas' && rutina.nivel !== filtroNivel) {
       return false
     }
     
-    // Filtro de equipo
     if (filtroEquipo !== 'Todos') {
       if (filtroEquipo === 'Sin Equipo' && rutina.equipo !== false) {
         return false
@@ -262,15 +258,19 @@ export default function RutinasScreen({ navigation }) {
               {rutina.descripcion || 'Sin descripción disponible.'}
             </Text>
 
-            {/* Botón */}
-            <View style={styles.verDetallesButton}>
+            {/* Botón CORREGIDO - Sin opacidad */}
+            <TouchableOpacity 
+              style={styles.verDetallesButton}
+              onPress={() => handleRutinaPress(rutina)}
+              activeOpacity={0.8}
+            >
               <Text style={styles.verDetallesText}>Ver ejercicios</Text>
               <MaterialIcons 
                 name="arrow-forward" 
                 size={18} 
                 color={COLORS.primary} 
               />
-            </View>
+            </TouchableOpacity>
           </View>
         </LinearGradient>
       </TouchableOpacity>
@@ -296,10 +296,16 @@ export default function RutinasScreen({ navigation }) {
       colors={[COLORS.background, COLORS.surface]} 
       style={styles.container}
     >
-      <View style={styles.headerOverlay} />
+      <View style={[styles.headerOverlay, { paddingTop: insets.top }]} />
 
       <ScrollView 
-        contentContainerStyle={styles.scrollContent} 
+        contentContainerStyle={[
+          styles.scrollContent,
+          { 
+            paddingTop: insets.top + 60,
+            paddingBottom: insets.bottom + (Platform.OS === 'ios' ? 100 : 90)
+          }
+        ]} 
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
@@ -307,23 +313,6 @@ export default function RutinasScreen({ navigation }) {
           <Text style={styles.title}>Rutinas</Text>
           <Text style={styles.subtitle}>Escoge una rutina por nivel</Text>
         </View>
-
-        {/* Barra de búsqueda
-        <View style={styles.searchContainer}>
-          <MaterialIcons name="search" size={20} color={COLORS.textSecondary} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Buscar rutina por nombre..."
-            placeholderTextColor={COLORS.textSecondary}
-            value={busqueda}
-            onChangeText={setBusqueda}
-          />
-          {busqueda.length > 0 && (
-            <TouchableOpacity onPress={() => setBusqueda('')}>
-              <MaterialIcons name="close" size={20} color={COLORS.textSecondary} />
-            </TouchableOpacity>
-          )}
-        </View> */}
 
         {/* Botón de expandir/colapsar filtros */}
         <TouchableOpacity
@@ -436,7 +425,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: 75,
+    height: 120,
     backgroundColor: COLORS.background,
     zIndex: 10,
   },
@@ -452,8 +441,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   scrollContent: {
-    paddingTop: 110,
-    paddingBottom: 40,
+    paddingHorizontal: 0,
   },
   headerContainer: {
     paddingHorizontal: 24,
@@ -469,24 +457,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: COLORS.textSecondary,
     marginBottom: 12,
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.card,
-    marginHorizontal: 24,
-    marginBottom: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  searchInput: {
-    flex: 1,
-    marginLeft: 8,
-    fontSize: 16,
-    color: COLORS.text,
   },
   filtrosToggle: {
     flexDirection: 'row',
@@ -532,14 +502,6 @@ const styles = StyleSheet.create({
   },
   filtroScrollView: {
     flexDirection: 'row',
-  },
-  filterScrollView: {
-    paddingLeft: 24,
-    marginBottom: 10,
-  },
-  filterScrollViewBottom: {
-    paddingLeft: 24,
-    marginBottom: 20,
   },
   filterChip: {
     paddingHorizontal: 20,
@@ -654,10 +616,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: COLORS.white,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
     borderRadius: 12,
-    gap: 6,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
   },
   verDetallesText: {
     fontSize: 15,
