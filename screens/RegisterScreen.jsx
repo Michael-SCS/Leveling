@@ -359,27 +359,21 @@ export default function RegisterScreen({ navigation }) {
       <Text style={styles.label}>¿Cuál es tu objetivo principal?</Text>
       <View style={styles.optionsColumn}>
         <OptionButton 
-          title="Perder peso" 
-          selected={objetivo === 'Perder peso'}
-          onPress={() => setObjetivo('Perder peso')}
+          title="Bajar de peso" 
+          selected={objetivo === 'Bajar de peso'}
+          onPress={() => setObjetivo('Bajar de peso')}
           fullWidth
         />
         <OptionButton 
-          title="Ganar músculo" 
-          selected={objetivo === 'Ganar músculo'}
-          onPress={() => setObjetivo('Ganar músculo')}
+          title="Aumentar músculo" 
+          selected={objetivo === 'Aumentar músculo'}
+          onPress={() => setObjetivo('Aumentar músculo')}
           fullWidth
         />
         <OptionButton 
-          title="Mejorar resistencia" 
-          selected={objetivo === 'Mejorar resistencia'}
-          onPress={() => setObjetivo('Mejorar resistencia')}
-          fullWidth
-        />
-        <OptionButton 
-          title="Mantenerme en forma" 
-          selected={objetivo === 'Mantenerme en forma'}
-          onPress={() => setObjetivo('Mantenerme en forma')}
+          title="Mantener estado físico" 
+          selected={objetivo === 'Mantener estado físico'}
+          onPress={() => setObjetivo('Mantener estado físico')}
           fullWidth
         />
       </View>

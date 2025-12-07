@@ -32,6 +32,7 @@ export default function DashboardScreen({ navigation }) {
   const [favoritos, setFavoritos] = useState([])
   const [clasicos, setClasicos] = useState([])
   const [actividadReciente, setActividadReciente] = useState([])
+  const [rutinasRecientes, setRutinasRecientes] = useState([])
   const [loadingData, setLoadingData] = useState(false)
   const [fadeAnim] = useState(new Animated.Value(0))
   const [slideAnim] = useState(new Animated.Value(50))
@@ -55,6 +56,7 @@ export default function DashboardScreen({ navigation }) {
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
       if (user) {
+        loadUserData()
         loadStreak(user.id)
         loadEntrenamientosData()
       }
@@ -161,6 +163,17 @@ export default function DashboardScreen({ navigation }) {
 
       const shuffled = (todosEntrenamientos || []).sort(() => Math.random() - 0.5)
       setEntrenamientosHoy(shuffled.slice(0, 6))
+
+      // Cargar rutinas recientes (últimas 5 agregadas)
+      const { data: recientesData, error: errorRecientes } = await supabase
+        .from('rutinas_predefinidas')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(5)
+
+      if (!errorRecientes) {
+        setRutinasRecientes(recientesData || [])
+      }
 
       // Cargar favoritos desde la tabla rutinas_favoritas
       if (user) {
@@ -288,6 +301,24 @@ export default function DashboardScreen({ navigation }) {
     return `${dias[hoy.getDay()]}, ${hoy.getDate()} de ${meses[hoy.getMonth()]}`
   }
 
+  const formatearFecha = (fechaString) => {
+    if (!fechaString) return 'Hace poco'
+    
+    const fecha = new Date(fechaString)
+    const ahora = new Date()
+    const diffMs = ahora - fecha
+    const diffDias = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+    
+    if (diffDias === 0) return 'Hoy'
+    if (diffDias === 1) return 'Ayer'
+    if (diffDias < 7) return `Hace ${diffDias} días`
+    if (diffDias < 30) return `Hace ${Math.floor(diffDias / 7)} semanas`
+    
+    const dia = fecha.getDate()
+    const mes = fecha.toLocaleDateString('es', { month: 'short' })
+    return `${dia} ${mes}`
+  }
+
   const renderRutinaCard = ({ item }) => (
     <TouchableOpacity
       style={styles.rutinaCard}
@@ -345,6 +376,57 @@ export default function DashboardScreen({ navigation }) {
           </View>
         </View>
       </LinearGradient>
+    </TouchableOpacity>
+  )
+
+  const renderRutinaSmallCard = ({ item }) => (
+    <TouchableOpacity
+      style={styles.rutinaSmallCard}
+      onPress={() => handleRutinaPress(item)}
+      activeOpacity={0.85}
+    >
+      <View style={styles.rutinaSmallImageContainer}>
+        {item.imagen_url ? (
+          <Image
+            source={{ uri: item.imagen_url }}
+            style={styles.rutinaSmallImage}
+            resizeMode="cover"
+          />
+        ) : (
+          <LinearGradient
+            colors={[COLORS.primary, COLORS.card]}
+            style={styles.rutinaSmallImage}
+          >
+            <MaterialIcons name="fitness-center" size={20} color={COLORS.white} />
+          </LinearGradient>
+        )}
+        <View style={styles.rutinaSmallBadge}>
+          <MaterialIcons name="new-releases" size={10} color="#FFD700" />
+        </View>
+      </View>
+
+      <View style={styles.rutinaSmallContent}>
+        <Text style={styles.rutinaSmallNombre} numberOfLines={2}>
+          {item.nombre}
+        </Text>
+        
+        <View style={styles.rutinaSmallMeta}>
+          <View style={styles.rutinaSmallMetaItem}>
+            <MaterialIcons name="schedule" size={10} color={COLORS.textSecondary} />
+            <Text style={styles.rutinaSmallMetaText}>
+              {item.duracion_minutos} min
+            </Text>
+          </View>
+          <View style={styles.rutinaSmallDivider} />
+          <Text style={styles.rutinaSmallFecha}>
+            {formatearFecha(item.created_at)}
+          </Text>
+        </View>
+
+        <View style={styles.rutinaSmallNivelBadge}>
+          <Text style={styles.rutinaSmallNivelText}>{item.nivel}</Text>
+        </View>
+      </View>
     </TouchableOpacity>
   )
 
@@ -460,7 +542,9 @@ export default function DashboardScreen({ navigation }) {
           <View style={styles.sectionHeader}>
             <View>
               <Text style={styles.sectionTitle}>Opciones para Hoy</Text>
-              <Text style={styles.sectionSubtitle}>{getFechaHoy()}</Text>
+              <Text style={styles.sectionSubtitle}>
+                {userInfo?.objetivo ? `Para tu objetivo: ${userInfo.objetivo}` : getFechaHoy()}
+              </Text>
             </View>
           </View>
 
@@ -486,6 +570,36 @@ export default function DashboardScreen({ navigation }) {
             </View>
           )}
         </View>
+
+        {/* RUTINAS RECIENTES AGREGADAS */}
+        {rutinasRecientes.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View>
+                <Text style={styles.sectionTitle}>Recién Agregadas</Text>
+                <Text style={styles.sectionSubtitle}>Nuevas rutinas para probar</Text>
+              </View>
+              <View style={styles.nuevoBadge}>
+                <MaterialIcons name="fiber-new" size={16} color="#FFD700" />
+              </View>
+            </View>
+
+            {loadingData ? (
+              <View style={styles.loadingSection}>
+                <ActivityIndicator size="small" color={COLORS.primary} />
+              </View>
+            ) : (
+              <FlatList
+                data={rutinasRecientes}
+                renderItem={renderRutinaSmallCard}
+                keyExtractor={(item) => `reciente-${item.id}`}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.rutinasSmallCarousel}
+              />
+            )}
+          </View>
+        )}
 
         {/* FAVORITOS */}
         {favoritos.length > 0 && (
@@ -786,7 +900,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  nuevoBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,215,0,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   rutinasCarousel: {
+    paddingRight: 20,
+  },
+  rutinasSmallCarousel: {
     paddingRight: 20,
   },
   rutinaCard: {
@@ -868,6 +993,93 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontSize: 11,
     fontWeight: '800',
+  },
+  rutinaSmallCard: {
+    width: width * 0.45,
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    marginRight: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: COLORS.border + '40',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  rutinaSmallImageContainer: {
+    position: 'relative',
+    width: '100%',
+    height: 100,
+  },
+  rutinaSmallImage: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  rutinaSmallBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  rutinaSmallContent: {
+    padding: 12,
+  },
+  rutinaSmallNombre: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: COLORS.text,
+    marginBottom: 8,
+    lineHeight: 18,
+    letterSpacing: -0.2,
+  },
+  rutinaSmallMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 6,
+  },
+  rutinaSmallMetaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  rutinaSmallMetaText: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    fontWeight: '600',
+  },
+  rutinaSmallDivider: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: COLORS.textSecondary + '50',
+  },
+  rutinaSmallFecha: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    fontWeight: '600',
+  },
+  rutinaSmallNivelBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: COLORS.primary + '15',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  rutinaSmallNivelText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: COLORS.primary,
+    letterSpacing: 0.3,
   },
   loadingSection: {
     alignItems: 'center',

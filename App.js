@@ -17,7 +17,7 @@ import { NavigationContainer } from '@react-navigation/native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { StatusBar } from 'expo-status-bar'
 import { ActivityIndicator, Platform, Text, View } from 'react-native'
-import { SafeAreaProvider } from 'react-native-safe-area-context'
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { AuthProvider, useAuth } from './components/AuthProvider'
 import { COLORS } from './constants/colors'
 import DashboardScreen from './screens/DashboardScreen'
@@ -32,8 +32,10 @@ import RutinasScreen from './screens/RutinasScreen'
 const Stack = createNativeStackNavigator()
 const Tab = createBottomTabNavigator()
 
-// Navegación por tabs (menú inferior) - CON SAFEAREAVIEW CORREGIDO
+// Navegación por tabs (menú inferior) - CORREGIDO PARA ANDROID
 function MainTabs() {
+  const insets = useSafeAreaInsets()
+  
   return (
     <Tab.Navigator
       screenOptions={{
@@ -42,10 +44,14 @@ function MainTabs() {
           backgroundColor: COLORS.surface,
           borderTopColor: COLORS.border,
           borderTopWidth: 1,
-          height: Platform.OS === 'ios' ? 88 : 70, // Más altura en iOS
-          paddingBottom: Platform.OS === 'ios' ? 20 : 10, // Espacio para el notch/home indicator
-          paddingTop: 10,
-          position: 'absolute', // Importante para que flote sobre el contenido
+          // Altura dinámica según la plataforma y safe area
+          height: Platform.OS === 'ios' 
+            ? 84 + insets.bottom 
+            : 65 + insets.bottom,
+          paddingBottom: Platform.OS === 'ios' 
+            ? insets.bottom 
+            : Math.max(insets.bottom, 8),
+          paddingTop: 8,
           elevation: 8,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: -2 },
@@ -58,6 +64,10 @@ function MainTabs() {
           fontSize: 11,
           fontWeight: '600',
           marginTop: 4,
+          marginBottom: 4,
+        },
+        tabBarIconStyle: {
+          marginTop: 4,
         },
       }}
     >
@@ -68,7 +78,7 @@ function MainTabs() {
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "home" : "home-outline"}
-              size={24}
+              size={26}
               color={color}
             />
           ),
@@ -81,7 +91,7 @@ function MainTabs() {
           tabBarIcon: ({ color, focused }) => (
             <MaterialCommunityIcons
               name={focused ? "dumbbell" : "dumbbell"}
-              size={26}
+              size={28}
               color={color}
             />
           ),
@@ -94,7 +104,7 @@ function MainTabs() {
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "stats-chart" : "stats-chart-outline"}
-              size={24}
+              size={26}
               color={color}
             />
           ),
@@ -108,7 +118,7 @@ function MainTabs() {
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "person" : "person-outline"}
-              size={24}
+              size={26}
               color={color}
             />
           ),

@@ -19,7 +19,7 @@ import { supabase } from '../lib/supabase'
 
 const STATUS_BAR_HEIGHT = Platform.OS === 'ios' ? 44 : StatusBar.currentHeight || 24
 
-export default function EditarPerfilScreen({ navigation }) {
+export default function EditarPerfilScreen({ navigation, route }) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [user, setUser] = useState(null)
@@ -103,6 +103,11 @@ export default function EditarPerfilScreen({ navigation }) {
         .eq('user_id', user.id)
 
       if (error) throw error
+
+      // Notificar a otras pantallas que se actualizó el perfil
+      if (route.params?.onUpdate) {
+        route.params.onUpdate()
+      }
 
       Alert.alert(
         '✅ Perfil Actualizado',
@@ -262,9 +267,9 @@ export default function EditarPerfilScreen({ navigation }) {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>🎯 Objetivo de Entrenamiento</Text>
           <View style={styles.quickOptionsRow}>
-            <QuickOption value="Perder peso" selected={objetivo === 'Perder peso'} onPress={() => setObjetivo('Perder peso')} />
-            <QuickOption value="Ganar masa" selected={objetivo === 'Ganar masa'} onPress={() => setObjetivo('Ganar masa')} />
-            <QuickOption value="Mantener" selected={objetivo === 'Mantener'} onPress={() => setObjetivo('Mantener')} />
+            <QuickOption value="Bajar de peso" selected={objetivo === 'Bajar de peso'} onPress={() => setObjetivo('Bajar de peso')} />
+            <QuickOption value="Aumentar músculo" selected={objetivo === 'Aumentar músculo'} onPress={() => setObjetivo('Aumentar músculo')} />
+            <QuickOption value="Mantener estado físico" selected={objetivo === 'Mantener estado físico'} onPress={() => setObjetivo('Mantener estado físicor')} />
           </View>
           <TextInput
             style={[styles.input, { marginTop: 10 }]}

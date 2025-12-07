@@ -23,12 +23,39 @@ export default function RutinasScreen({ navigation }) {
   const [filtroEquipo, setFiltroEquipo] = useState('Todos')
   const [busqueda, setBusqueda] = useState('')
   const [filtrosExpandidos, setFiltrosExpandidos] = useState(false)
+  const [objetivoUsuario, setObjetivoUsuario] = useState(null)
 
   useEffect(() => {
+    loadUserObjetivo()
     loadRutinas()
   }, [])
 
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadUserObjetivo()
+    })
+    return unsubscribe
+  }, [navigation])
+
   // ==================== FUNCIONES DE CARGA ====================
+  const loadUserObjetivo = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data, error } = await supabase
+        .from('usuarios_info')
+        .select('objetivo')
+        .eq('user_id', user.id)
+        .single()
+
+      if (error) throw error
+      setObjetivoUsuario(data?.objetivo)
+    } catch (error) {
+      console.log('Error cargando objetivo del usuario:', error)
+    }
+  }
+
   const loadRutinas = async () => {
     try {
       const { data, error } = await supabase
@@ -158,6 +185,11 @@ export default function RutinasScreen({ navigation }) {
 
   // ==================== FILTRADO DE RUTINAS ====================
   const rutinasFiltradas = rutinas.filter((rutina) => {
+    // Filtro por objetivo del usuario
+    if (objetivoUsuario && rutina.objetivo !== objetivoUsuario) {
+      return false
+    }
+
     if (busqueda.trim() !== '') {
       const nombreLower = rutina.nombre.toLowerCase()
       const busquedaLower = busqueda.toLowerCase()
@@ -322,7 +354,11 @@ export default function RutinasScreen({ navigation }) {
         {/* Header */}
         <View style={styles.headerContainer}>
           <Text style={styles.title}>Rutinas</Text>
-          <Text style={styles.subtitle}>Escoge una rutina por nivel</Text>
+          <Text style={styles.subtitle}>
+            {objetivoUsuario 
+              ? `Rutinas para: ${objetivoUsuario}` 
+              : 'Escoge una rutina por nivel'}
+          </Text>
         </View>
 
         {/* Botón de expandir/colapsar filtros */}
@@ -418,7 +454,9 @@ export default function RutinasScreen({ navigation }) {
             <MaterialIcons name="fitness-center" size={48} color={COLORS.textSecondary} />
             <Text style={styles.emptyTitle}>No hay rutinas</Text>
             <Text style={styles.emptyText}>
-              Cambia el filtro para ver otras rutinas disponibles.
+              {objetivoUsuario 
+                ? `No hay rutinas disponibles para tu objetivo: ${objetivoUsuario}. Cambia el filtro para ver otras rutinas.`
+                : 'Cambia el filtro para ver otras rutinas disponibles.'}
             </Text>
           </View>
         )}
