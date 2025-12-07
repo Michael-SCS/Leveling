@@ -31,8 +31,8 @@ export default function RutinaDetalleScreen({ route, navigation }) {
   const [ejercicioActual, setEjercicioActual] = useState(null)
   const [timerDescanso, setTimerDescanso] = useState(0)
   const [mostrarTimer, setMostrarTimer] = useState(false)
+  const [esFavorito, setEsFavorito] = useState(false)
 
-  // 🎯 Nuevos estados para el feedback y success
   const [mostrarFeedback, setMostrarFeedback] = useState(false)
   const [calificacion, setCalificacion] = useState(0)
   const [comentario, setComentario] = useState('')
@@ -43,6 +43,7 @@ export default function RutinaDetalleScreen({ route, navigation }) {
 
   useEffect(() => {
     loadRutinaDetalle()
+    checkFavorito()
   }, [])
 
   useEffect(() => {
@@ -73,6 +74,60 @@ export default function RutinaDetalleScreen({ route, navigation }) {
     return () => clearInterval(interval)
   }, [timerDescanso])
 
+  const checkFavorito = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data } = await supabase
+        .from('rutinas_favoritas')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('rutina_id', rutinaId)
+        .single()
+
+      setEsFavorito(!!data)
+    } catch (error) {
+      console.log('Error verificando favorito:', error)
+    }
+  }
+
+  const toggleFavorito = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        Alert.alert('Error', 'Debes iniciar sesión')
+        return
+      }
+
+      if (esFavorito) {
+        const { error } = await supabase
+          .from('rutinas_favoritas')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('rutina_id', rutinaId)
+
+        if (error) throw error
+        setEsFavorito(false)
+        Alert.alert('✓', 'Eliminado de favoritos')
+      } else {
+        const { error } = await supabase
+          .from('rutinas_favoritas')
+          .insert([{
+            user_id: user.id,
+            rutina_id: rutinaId
+          }])
+
+        if (error) throw error
+        setEsFavorito(true)
+        Alert.alert('❤️', 'Agregado a favoritos')
+      }
+    } catch (error) {
+      console.log('Error toggle favorito:', error)
+      Alert.alert('Error', 'No se pudo actualizar favoritos')
+    }
+  }
+
   const loadRutinaDetalle = async () => {
     try {
       const { data: rutinaData, error: rutinaError } = await supabase
@@ -87,20 +142,20 @@ export default function RutinaDetalleScreen({ route, navigation }) {
       const { data: ejerciciosData, error: ejerciciosError } = await supabase
         .from('rutinas_ejercicios')
         .select(`
-          id,
-          orden,
-          series,
-          repeticiones,
-          tiempo_descanso_segundos,
-          ejercicios (
-            id,
-            nombre,
-            grupo_muscular,
-            instrucciones,
-            gif_url,
-            video_url
-          )
-        `)
+          id,
+          orden,
+          series,
+          repeticiones,
+          tiempo_descanso_segundos,
+          ejercicios (
+            id,
+            nombre,
+            grupo_muscular,
+            instrucciones,
+            gif_url,
+            video_url
+          )
+        `)
         .eq('rutina_id', rutinaId)
         .order('orden', { ascending: true })
 
@@ -172,93 +227,79 @@ export default function RutinaDetalleScreen({ route, navigation }) {
   }
 
   const guardarEntrenamientoConFeedback = async (omitido = false) => {
-  try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('Usuario no autenticado')
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Usuario no autenticado')
 
-    const ejerciciosIds = ejercicios
-      .filter(e => ejerciciosCompletados.has(e.id))
-      .map(e => e.ejercicios.id)
+      const ejerciciosIds = ejercicios
+        .filter(e => ejerciciosCompletados.has(e.id))
+        .map(e => e.ejercicios.id)
 
-    const calificacionFinal = calificacion > 0 ? calificacion : null;
-    const comentarioFinal = comentario || null;
+      const calificacionFinal = calificacion > 0 ? calificacion : null
+      const comentarioFinal = comentario || null
 
-    // 🎯 CÁLCULO DE FECHA Y HORA EN ZONA HORARIA LOCAL
-    const now = new Date();
+      const now = new Date()
+      const fechaActual = now.toLocaleDateString('en-CA', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      }).replace(/[^0-9-]/g, '')
 
-    // Formatear la FECHA (YYYY-MM-DD) para la columna 'fecha' (tipo DATE).
-    const fechaActual = now.toLocaleDateString('en-CA', { // 'en-CA' asegura YYYY-MM-DD
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
-    }).replace(/[^0-9-]/g, '');
-
-    // Formatear la HORA (HH:MM:SS) para la columna 'hora_finalizacion' (tipo TIME).
-    const horaActual = now.toLocaleTimeString('es-ES', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false 
-    });
-    
-    console.log(`LOG Fecha a guardar: ${fechaActual} | Hora a guardar: ${horaActual}`); 
-    // FIN DEL CÁLCULO 🎯
-
-    const { error } = await supabase
-      .from('entrenamientos_completados')
-      .insert([{
-        user_id: user.id,
-        rutina_id: rutinaId,
-        duracion_minutos: datosEntrenamiento.duracionMinutos,
-        calorias_quemadas: datosEntrenamiento.calorias,
-        xp_ganada: datosEntrenamiento.xpGanada,
-        ejercicios_completados: ejerciciosIds,
-        
-        // 🚀 GUARDAMOS LA FECHA Y HORA LOCALES
-        fecha: fechaActual, 
-        hora: horaActual, // <-- ¡Nueva columna!
-        
-        calificacion: calificacionFinal,
-        comentario: comentarioFinal
-      }])
-
-    if (error) throw error
-
-    // 📧 Enviar feedback por correo
-    if (calificacionFinal || comentarioFinal) {
-      enviarFeedbackPorCorreo(user, calificacionFinal, comentarioFinal) 
-    }
-
-    setMostrarFeedback(false)
-    setEntrenandoActivo(false)
-    setTiempoInicio(null)
-    setCalificacion(0);
-    setComentario('');
-
-    // Mostrar success toast con animación... (El código de animación se mantiene)
-    setMostrarSuccess(true)
-    Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
-      Animated.spring(scaleAnim, { toValue: 1, friction: 8, tension: 40, useNativeDriver: true }),
-    ]).start()
-
-    setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(fadeAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
-        Animated.timing(scaleAnim, { toValue: 0.8, duration: 300, useNativeDriver: true }),
-      ]).start(() => {
-        setMostrarSuccess(false)
-        navigation.goBack()
+      const horaActual = now.toLocaleTimeString('es-ES', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
       })
-    }, 3000)
 
-  } catch (error) {
-    console.log('LOG Error guardando entrenamiento:', error)
-    // El error de Supabase (PGRST204) está aquí
-    Alert.alert('Error', 'No se pudo guardar el entrenamiento')
+      const { error } = await supabase
+        .from('entrenamientos_completados')
+        .insert([{
+          user_id: user.id,
+          rutina_id: rutinaId,
+          duracion_minutos: datosEntrenamiento.duracionMinutos,
+          calorias_quemadas: datosEntrenamiento.calorias,
+          xp_ganada: datosEntrenamiento.xpGanada,
+          ejercicios_completados: ejerciciosIds,
+          fecha: fechaActual,
+          hora: horaActual,
+          calificacion: calificacionFinal,
+          comentario: comentarioFinal
+        }])
+
+      if (error) throw error
+      // 📧 Enviar feedback por correo
+      if (calificacionFinal || comentarioFinal) {
+        enviarFeedbackPorCorreo(user, calificacionFinal, comentarioFinal)
+      }
+      
+      setMostrarFeedback(false)
+      setEntrenandoActivo(false)
+      setTiempoInicio(null)
+      setCalificacion(0)
+      setComentario('')
+
+      setMostrarSuccess(true)
+      Animated.parallel([
+        Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
+        Animated.spring(scaleAnim, { toValue: 1, friction: 8, tension: 40, useNativeDriver: true }),
+      ]).start()
+
+      setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(fadeAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
+          Animated.timing(scaleAnim, { toValue: 0.8, duration: 300, useNativeDriver: true }),
+        ]).start(() => {
+          setMostrarSuccess(false)
+          navigation.goBack()
+        })
+      }, 3000)
+
+    } catch (error) {
+      console.log('Error guardando entrenamiento:', error)
+      Alert.alert('Error', 'No se pudo guardar el entrenamiento')
+    }
   }
-}
-
   const enviarFeedbackPorCorreo = async (user, calificacion, comentario) => {
     try {
       console.log('🚀 Iniciando envío de email...')
@@ -279,68 +320,155 @@ export default function RutinaDetalleScreen({ route, navigation }) {
 <!DOCTYPE html>
 <html>
 <head>
-  <style>
-    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-    .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 10px; text-align: center; }
-    .content { background: #f9f9f9; padding: 30px; border-radius: 10px; margin-top: 20px; }
-    .rating { font-size: 32px; margin: 10px 0; }
-    .info { background: white; padding: 15px; border-radius: 8px; margin: 10px 0; }
-    .label { font-weight: bold; color: #667eea; }
-    .comment { background: white; padding: 20px; border-left: 4px solid #667eea; margin-top: 20px; font-style: italic; }
-    .footer { text-align: center; margin-top: 30px; color: #999; font-size: 12px; }
-  </style>
+  <style>
+    body { 
+      font-family: 'Arial', sans-serif; 
+      margin: 0; 
+      padding: 0; 
+      background: #f1f3f9;
+      color: #333;
+    }
+
+    .container { 
+      max-width: 650px; 
+      margin: 30px auto; 
+      background: #ffffff; 
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0px 8px 25px rgba(0,0,0,0.08);
+    }
+
+    .header {
+      background: linear-gradient(135deg, #5e60ce 0%, #7400b8 100%);
+      padding: 40px 20px;
+      text-align: center;
+      color: #fff;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 26px;
+      font-weight: bold;
+    }
+
+    .content {
+      padding: 30px;
+      background: #fafbff;
+    }
+
+    .card {
+      background: #fff;
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      border: 1px solid #e6e8f0;
+      box-shadow: 0px 4px 12px rgba(0,0,0,0.05);
+    }
+
+    .label {
+      font-weight: bold;
+      color: #5e60ce;
+    }
+
+    .rating {
+      font-size: 34px;
+      text-align: center;
+      margin: 12px 0;
+    }
+
+    .comment {
+      background: #ffffff;
+      padding: 20px;
+      border-left: 5px solid #5e60ce;
+      border-radius: 8px;
+      font-style: italic;
+      line-height: 1.6;
+      color: #444;
+    }
+
+    .stats p {
+      margin: 6px 0;
+      font-size: 15px;
+    }
+
+    .footer {
+      text-align: center; 
+      padding: 20px;
+      font-size: 13px;
+      color: #9aa0b5;
+    }
+  </style>
 </head>
+
 <body>
-  <div class="container">
-    <div class="header">
-      <h1>💪 Nuevo Feedback de Entrenamiento</h1>
-    </div>
-    
-    <div class="content">
-      <div class="info">
-        <p><span class="label">👤 Usuario:</span> ${nombreUsuario}</p>
-        <p><span class="label">📧 Email:</span> ${user.email}</p>
-        <p><span class="label">🏋️ Rutina:</span> ${rutina?.nombre}</p>
-        <p><span class="label">📅 Fecha:</span> ${new Date().toLocaleDateString('es-ES', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      })}</p>
-      </div>
 
-      <div class="info">
-        <p><span class="label">Calificación:</span></p>
-        <div class="rating">${estrellas} (${calificacionTexto})</div>
-      </div>
+<div class="container">
 
-      ${comentario ? `
-      <div class="comment">
-        <p><span class="label">💬 Comentario del usuario:</span></p>
-        <p>"${comentario}"</p>
-      </div>
-      ` : '<p style="text-align: center; color: #999;">Sin comentarios adicionales</p>'}
+  <div class="header">
+    <h1>💪 Nuevo Feedback de Entrenamiento</h1>
+  </div>
 
-      <div class="info">
-        <p><span class="label">📊 Estadísticas del entrenamiento:</span></p>
-        <p>⏱️ Duración: ${datosEntrenamiento.duracionMinutos} minutos</p>
-        <p>🔥 Calorías: ${datosEntrenamiento.calorias} kcal</p>
-        <p>✅ Ejercicios completados: ${ejerciciosCompletados.size}/${ejercicios.length}</p>
-        <p>⭐ XP ganada: ${datosEntrenamiento.xpGanada}</p>
-      </div>
-    </div>
+  <div class="content">
 
-    <div class="footer">
-      <p>Este es un correo automático del sistema de feedback de FitApp</p>
-      <p>No respondas a este correo</p>
-    </div>
-  </div>
+    <!-- Usuario -->
+    <div class="card">
+      <p><span class="label">👤 Usuario:</span> ${nombreUsuario}</p>
+      <p><span class="label">📧 Email:</span> ${user.email}</p>
+      <p><span class="label">🏋️ Rutina:</span> ${rutina?.nombre}</p>
+      <p><span class="label">📅 Fecha:</span> 
+        ${new Date().toLocaleDateString('es-ES', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        })}
+      </p>
+    </div>
+
+    <!-- Calificación -->
+    <div class="card">
+      <p><span class="label">⭐ Calificación:</span></p>
+      <div class="rating">${estrellas} <br>(${calificacionTexto})</div>
+    </div>
+
+    <!-- Comentario -->
+    ${
+      comentario 
+      ? `
+      <div class="card comment">
+        <p><span class="label">💬 Comentario del usuario:</span></p>
+        <p>"${comentario}"</p>
+      </div>
+      `
+      : `
+      <div class="card" style="text-align:center; color:#999;">
+        <p>Sin comentarios adicionales</p>
+      </div>
+      `
+    }
+
+    <!-- Stats -->
+    <div class="card stats">
+      <p><span class="label">📊 Estadísticas del entrenamiento:</span></p>
+      <p>⏱️ <strong>Duración:</strong> ${datosEntrenamiento.duracionMinutos} minutos</p>
+      <p>🔥 <strong>Calorías quemadas:</strong> ${datosEntrenamiento.calorias} kcal</p>
+      <p>🏃 <strong>Ejercicios completados:</strong> ${ejerciciosCompletados.size}/${ejercicios.length}</p>
+      <p>⭐ <strong>XP Ganada:</strong> ${datosEntrenamiento.xpGanada}</p>
+    </div>
+
+  </div>
+
+  <div class="footer">
+    <p>Este es un correo automático del sistema de feedback de FitApp.</p>
+    <p>No respondas a este mensaje.</p>
+  </div>
+
+</div>
+
 </body>
 </html>
-    `
+      `
 
       console.log('📨 Invocando Edge Function...')
       console.log('📧 Destinatario:', 'Bekurooficial@gmail.com')
@@ -372,6 +500,19 @@ export default function RutinaDetalleScreen({ route, navigation }) {
     return `${m}:${s}`
   }
 
+  const parsearParteTrabajada = (partes) => {
+    // Si ya es un array, devolverlo limpio
+    if (Array.isArray(partes)) {
+      return partes.filter(Boolean)
+    }
+    // Si es string, hacer split
+    if (typeof partes === 'string') {
+      return partes.split(',').map(p => p.trim()).filter(Boolean)
+    }
+    // Si es null/undefined, devolver array vacío
+    return []
+  }
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -380,27 +521,26 @@ export default function RutinaDetalleScreen({ route, navigation }) {
     )
   }
 
+  const partesDelCuerpo = parsearParteTrabajada(rutina?.parte_trabajada || '')
+
   return (
     <View style={styles.container}>
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
 
-      <View style={styles.headerImageContainer}>
-        {rutina?.imagen_url && (
-          <Image
-            source={{ uri: rutina.imagen_url }}
-            style={styles.headerImage}
-            contentFit="cover"
-            autoplay
-            loop
-          />
-        )}
+        {/* HEADER CON IMAGEN */}
+        <View style={styles.headerContainer}>
+          {rutina?.imagen_url && (
+            <Image
+              source={{ uri: rutina.imagen_url }}
+              style={styles.headerImage}
+              contentFit="cover"
+            />
+          )}
 
-        <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.8)', COLORS.background]}
-          style={styles.headerGradient}
-        >
-          <View style={styles.headerTop}>
+          {/* Botones superiores */}
+          <View style={styles.headerButtons}>
             <TouchableOpacity
-              style={styles.backButton}
+              style={styles.iconButton}
               onPress={() => {
                 if (entrenandoActivo) {
                   Alert.alert(
@@ -414,66 +554,113 @@ export default function RutinaDetalleScreen({ route, navigation }) {
                 } else navigation.goBack()
               }}
             >
-              <Text style={styles.backButtonText}>←</Text>
+              <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
             </TouchableOpacity>
 
-            {entrenandoActivo && (
-              <View style={styles.timerContainer}>
-                <Text style={styles.timerIcon}>⏱️</Text>
-                <Text style={styles.timerText}>{formatearTiempo(tiempoTranscurrido)}</Text>
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={toggleFavorito}
+            >
+              <MaterialIcons
+                name={esFavorito ? "favorite" : "favorite-border"}
+                size={24}
+                color={esFavorito ? "#FF6B6B" : "#FFFFFF"}
+              />
+            </TouchableOpacity>
+          </View>
+
+          {/* Timer flotante */}
+          {entrenandoActivo && (
+            <View style={styles.timerFloating}>
+              <MaterialIcons name="timer" size={20} color="#FFFFFF" />
+              <Text style={styles.timerFloatingText}>{formatearTiempo(tiempoTranscurrido)}</Text>
+            </View>
+          )}
+        </View>
+
+        {/* INFORMACIÓN DE LA RUTINA - FONDO NEGRO */}
+        <View style={styles.infoSection}>
+          <Text style={styles.titulo}>{rutina?.nombre?.toUpperCase()}</Text>
+
+          <View style={styles.metaRow}>
+            <View style={styles.metaBadge}>
+              <MaterialIcons name="signal-cellular-alt" size={16} color="#FFFFFF" />
+              <Text style={styles.metaText}>{rutina?.nivel}</Text>
+            </View>
+
+            <View style={styles.metaBadge}>
+              <MaterialIcons name="fitness-center" size={16} color="#FFFFFF" />
+              <Text style={styles.metaText}>
+                {rutina?.equipo ? 'Con equipo' : 'Sin equipo'}
+              </Text>
+            </View>
+
+            <View style={styles.metaBadge}>
+              <MaterialIcons name="place" size={16} color="#FFFFFF" />
+              <Text style={styles.metaText}>{rutina?.lugar || 'No especificado'}</Text>
+            </View>
+          </View>
+
+          <Text style={styles.descripcion}>{rutina?.descripcion}</Text>
+
+          {/* PARTES DEL CUERPO TRABAJADAS */}
+          {partesDelCuerpo.length > 0 && (
+            <View style={styles.partesSection}>
+              <Text style={styles.partesTitle}>💪 Partes trabajadas</Text>
+              <View style={styles.partesTags}>
+                {partesDelCuerpo.map((parte, index) => (
+                  <View key={index} style={styles.parteTag}>
+                    <Text style={styles.parteTagText}>{parte}</Text>
+                  </View>
+                ))}
               </View>
-            )}
-          </View>
+            </View>
+          )}
+        </View>
 
-          <View style={styles.headerContent}>
-            <Text style={styles.headerTitle}>{rutina?.nombre}</Text>
-            <Text style={styles.headerDescripcion}>{rutina?.descripcion}</Text>
-          </View>
-        </LinearGradient>
-      </View>
-
-      <ScrollView style={styles.ejerciciosScroll} contentContainerStyle={styles.ejerciciosContent}>
-        {ejercicios.length === 0 ? (
-          <Text style={{ color: COLORS.text, textAlign: 'center', marginTop: 40 }}>
-            No hay ejercicios en la rutina
+        {/* EJERCICIOS */}
+        <View style={styles.ejerciciosSection}>
+          <Text style={styles.ejerciciosSectionTitle}>
+            Ejercicios ({ejercicios.length})
           </Text>
-        ) : (
-          ejercicios.map((item, index) => {
+
+          {ejercicios.map((item, index) => {
             const completado = ejerciciosCompletados.has(item.id)
 
             return (
               <View
                 key={item.id}
-                style={[styles.ejercicioCard, completado && { borderColor: COLORS.success }]}
+                style={[styles.ejercicioCard, completado && styles.ejercicioCardCompletado]}
               >
                 <View style={styles.ejercicioHeader}>
-                  <Text style={styles.ejercicioNombre}>
-                    {index + 1}. {item.ejercicios?.nombre}
-                  </Text>
+                  <Text style={styles.ejercicioNumero}>{index + 1}</Text>
+                  <Text style={styles.ejercicioNombre}>{item.ejercicios?.nombre}</Text>
 
                   {entrenandoActivo && (
                     <TouchableOpacity
                       onPress={() => toggleEjercicioCompletado(item.id)}
                       style={[
                         styles.checkButton,
-                        completado && { backgroundColor: COLORS.success }
+                        completado && styles.checkButtonCompletado
                       ]}
                     >
-                      <Text style={styles.checkIcon}>
-                        {completado ? '✓' : '○'}
-                      </Text>
+                      <MaterialIcons
+                        name={completado ? "check" : "radio-button-unchecked"}
+                        size={24}
+                        color={completado ? "#4CAF50" : "#666"}
+                      />
                     </TouchableOpacity>
                   )}
                 </View>
 
-                <Text style={styles.ejercicioSub}>
+                <Text style={styles.ejercicioSeries}>
                   {item.series} series × {item.repeticiones} reps
                 </Text>
 
                 {item.ejercicios?.gif_url && (
                   <Image
                     source={{ uri: item.ejercicios.gif_url }}
-                    style={styles.mediaEjercicio}
+                    style={styles.ejercicioGif}
                     contentFit="cover"
                     autoplay
                     loop
@@ -481,51 +668,62 @@ export default function RutinaDetalleScreen({ route, navigation }) {
                 )}
 
                 {item.ejercicios?.instrucciones && (
-                  <Text style={styles.instrucciones}>{item.ejercicios.instrucciones}</Text>
+                  <Text style={styles.ejercicioInstrucciones}>
+                    {item.ejercicios.instrucciones}
+                  </Text>
                 )}
 
                 {entrenandoActivo && (
                   <TouchableOpacity
-                    style={[
-                      styles.descansoButton,
-                      {
-                        backgroundColor: completado
-                          ? '#4CAF5080'
-                          : COLORS.primary
-                      }]}
+                    style={styles.descansoButton}
                     onPress={() => iniciarDescanso(item, item.tiempo_descanso_segundos)}
                   >
+                    <MaterialIcons name="schedule" size={18} color="#FFFFFF" />
                     <Text style={styles.descansoButtonText}>
-                      ⏱️ Tomar Descanso ({item.tiempo_descanso_segundos || 60}s)
+                      Descanso ({item.tiempo_descanso_segundos || 60}s)
                     </Text>
                   </TouchableOpacity>
                 )}
               </View>
             )
-          })
-        )}
+          })}
+        </View>
 
-        {ejercicios.length > 0 && (
-          !entrenandoActivo ? (
+        {/* BOTÓN PRINCIPAL */}
+        <View style={styles.bottomButtonContainer}>
+          {!entrenandoActivo ? (
             <TouchableOpacity style={styles.startButton} onPress={handleIniciarEntrenamiento}>
-              <Text style={styles.startButtonText}>Iniciar Entrenamiento 🔥</Text>
+              <LinearGradient
+                colors={[COLORS.primary, '#8B7FE8']}
+                style={styles.startButtonGradient}
+              >
+                <MaterialIcons name="play-arrow" size={28} color="#FFFFFF" />
+                <Text style={styles.startButtonText}>Iniciar Entrenamiento</Text>
+              </LinearGradient>
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
-              style={[styles.startButton, ejerciciosCompletados.size === 0 && { opacity: 0.5 }]}
+              style={[styles.startButton, ejerciciosCompletados.size === 0 && styles.startButtonDisabled]}
               onPress={handleFinalizarEntrenamiento}
               disabled={ejerciciosCompletados.size === 0}
             >
-              <Text style={styles.startButtonText}>Finalizar ✓</Text>
+              <LinearGradient
+                colors={['#4CAF50', '#45a049']}
+                style={styles.startButtonGradient}
+              >
+                <MaterialIcons name="check-circle" size={28} color="#FFFFFF" />
+                <Text style={styles.startButtonText}>Finalizar</Text>
+              </LinearGradient>
             </TouchableOpacity>
-          )
-        )}
+          )}
+        </View>
       </ScrollView>
 
+      {/* MODAL TIMER DESCANSO */}
       <Modal visible={mostrarTimer} transparent animationType="fade">
         <View style={styles.timerModalOverlay}>
           <View style={styles.timerModal}>
-            <Text style={styles.timerModalTitle}>Descanso</Text>
+            <Text style={styles.timerModalTitle}>⏸️ Descanso</Text>
 
             {ejercicioActual?.ejercicios?.gif_url && (
               <Image
@@ -540,7 +738,7 @@ export default function RutinaDetalleScreen({ route, navigation }) {
             <Text style={styles.timerModalTiempo}>{formatearTiempo(timerDescanso)}</Text>
 
             <Text style={styles.timerModalNext}>
-              Próximo: {ejercicioActual?.ejercicios?.nombre}
+              Ejercicio Actual: {ejercicioActual?.ejercicios?.nombre}
             </Text>
 
             <TouchableOpacity
@@ -553,22 +751,20 @@ export default function RutinaDetalleScreen({ route, navigation }) {
         </View>
       </Modal>
 
+      {/* MODAL FEEDBACK */}
       <Modal visible={mostrarFeedback} transparent animationType="slide">
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.feedbackOverlay}
         >
-          <TouchableOpacity
-            style={{ flex: 1 }}
-            activeOpacity={1}
-          >
+          <TouchableOpacity style={{ flex: 1 }} activeOpacity={1}>
             <View style={styles.feedbackModalContainer}>
               <View style={styles.feedbackModal}>
                 <View style={styles.feedbackHeader}>
                   <MaterialIcons name="chat-bubble-outline" size={32} color={COLORS.primary} />
                   <Text style={styles.feedbackTitle}>Tu opinión importa</Text>
                   <Text style={styles.feedbackSubtitle}>
-                    Queremos darte la mejor experiencia. Cuéntanos qué tal estuvo 💪💜
+                    ¿Qué tal estuvo el entrenamiento?
                   </Text>
                 </View>
 
@@ -603,10 +799,8 @@ export default function RutinaDetalleScreen({ route, navigation }) {
                   <TouchableOpacity
                     style={styles.feedbackButtonSecondary}
                     onPress={() => {
-                      // Al omitir, se fuerzan los estados a 0/vacío
                       setCalificacion(0)
                       setComentario('')
-                      // La función de guardado detectará calificacion=0 y enviará NULL
                       guardarEntrenamientoConFeedback(true)
                     }}
                   >
@@ -625,7 +819,7 @@ export default function RutinaDetalleScreen({ route, navigation }) {
                       style={styles.feedbackButtonGradient}
                     >
                       <Text style={styles.feedbackButtonPrimaryText}>Enviar</Text>
-                      <MaterialIcons name="send" size={18} color={COLORS.white} />
+                      <MaterialIcons name="send" size={18} color="#FFFFFF" />
                     </LinearGradient>
                   </TouchableOpacity>
                 </View>
@@ -635,6 +829,7 @@ export default function RutinaDetalleScreen({ route, navigation }) {
         </KeyboardAvoidingView>
       </Modal>
 
+      {/* SUCCESS TOAST */}
       {mostrarSuccess && (
         <Animated.View
           style={[
@@ -649,10 +844,7 @@ export default function RutinaDetalleScreen({ route, navigation }) {
             colors={[COLORS.primary, '#8B7FE8']}
             style={styles.successToastGradient}
           >
-            <View style={styles.successIconContainer}>
-              <MaterialIcons name="celebration" size={48} color={COLORS.white} />
-            </View>
-
+            <MaterialIcons name="celebration" size={48} color="#FFFFFF" />
             <Text style={styles.successTitle}>¡Felicidades!</Text>
             <Text style={styles.successSubtitle}>Entrenamiento completado</Text>
 
@@ -687,156 +879,335 @@ export default function RutinaDetalleScreen({ route, navigation }) {
           </LinearGradient>
         </Animated.View>
       )}
-
     </View>
   )
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  headerImageContainer: { height: 350 },
-  headerImage: { width: '100%', height: '100%', position: 'absolute' },
-  headerGradient: { flex: 1, padding: 20, justifyContent: 'flex-end' },
-  headerTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  container: {
+    flex: 1,
+    backgroundColor: '#000000',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#000000',
+  },
+  scrollView: {
+    flex: 1,
+  },
+
+  // HEADER
+  headerContainer: {
+    height: 300,
+    position: 'relative',
+  },
+  headerImage: {
+    width: '100%',
+    height: '100%',
+  },
+  headerButtons: {
     position: 'absolute',
     top: 50,
     left: 20,
     right: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     zIndex: 10,
   },
-  backButton: {
+  iconButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'center',
-    alignItems: 'center'
-  },
-  backButtonText: { color: COLORS.white, fontSize: 24, fontWeight: 'bold' },
-  timerContainer: {
-    flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 15
-  },
-  timerIcon: { fontSize: 16, marginRight: 5 },
-  timerText: { color: COLORS.white, fontWeight: 'bold' },
-  headerContent: { marginTop: 10 },
-  headerTitle: { fontSize: 28, fontWeight: 'bold', color: COLORS.text },
-  headerDescripcion: { color: COLORS.white, opacity: 0.9, marginTop: 6 },
-  ejerciciosScroll: { flex: 1 },
-  ejerciciosContent: { padding: 16 },
-  ejercicioCard: {
-    backgroundColor: COLORS.card,
-    borderRadius: 14,
-    padding: 15,
-    marginBottom: 15,
-    borderWidth: 2,
-    borderColor: COLORS.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.3,
     shadowRadius: 4,
-    elevation: 4,
+    elevation: 5,
+  },
+  timerFloating: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    gap: 8,
+  },
+  timerFloatingText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+
+  // SECCIÓN INFO
+  infoSection: {
+    backgroundColor: '#000000',
+    padding: 24,
+    paddingTop: 28,
+  },
+  titulo: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    marginBottom: 16,
+    letterSpacing: 1,
+    lineHeight: 34,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 20,
+  },
+  metaBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#1a1a1a',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  metaText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  descripcion: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    lineHeight: 24,
+    marginBottom: 24,
+    opacity: 0.9,
+  },
+
+  // PARTES DEL CUERPO
+  partesSection: {
+    marginTop: 8,
+  },
+  partesTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  partesTags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  parteTag: {
+    backgroundColor: COLORS.primary + '30',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: COLORS.primary + '50',
+  },
+  parteTagText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+
+  // EJERCICIOS
+  ejerciciosSection: {
+    padding: 24,
+    paddingTop: 8,
+  },
+  ejerciciosSectionTitle: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '900',
+    marginBottom: 20,
+  },
+  ejercicioCard: {
+    backgroundColor: '#1a1a1a',
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: '#2a2a2a',
+  },
+  ejercicioCardCompletado: {
+    borderColor: '#4CAF50',
+    backgroundColor: '#1a2a1a',
   },
   ejercicioHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center'
+    alignItems: 'center',
+    marginBottom: 10,
+    gap: 12,
+  },
+  ejercicioNumero: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.primary,
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '900',
+    textAlign: 'center',
+    lineHeight: 32,
   },
   ejercicioNombre: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: COLORS.text,
-    flexShrink: 1
+    flex: 1,
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '700',
   },
-  ejercicioSub: { color: COLORS.primary, marginTop: 6, fontWeight: '600' },
-  mediaEjercicio: {
-    width: '100%',
-    height: 180,
-    borderRadius: 10,
-    marginTop: 15,
-    backgroundColor: COLORS.surface
-  },
-  instrucciones: { marginTop: 8, color: COLORS.textSecondary, fontSize: 13 },
   checkButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: COLORS.primary,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: COLORS.primary
   },
-  checkIcon: { fontSize: 20, color: COLORS.white, lineHeight: 22 },
-  descansoButton: { marginTop: 15, padding: 12, borderRadius: 10 },
-  descansoButtonText: { textAlign: 'center', color: COLORS.white, fontWeight: 'bold' },
-  startButton: {
-    marginTop: 30,
-    marginBottom: 20,
-    marginHorizontal: 10,
-    padding: 18,
+  checkButtonCompletado: {
+    backgroundColor: '#4CAF5020',
+  },
+  ejercicioSeries: {
+    color: COLORS.primary,
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 14,
+  },
+  ejercicioGif: {
+    width: '100%',
+    height: 200,
+    borderRadius: 12,
+    marginBottom: 12,
+    backgroundColor: '#000',
+  },
+  ejercicioInstrucciones: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    lineHeight: 20,
+    opacity: 0.8,
+    marginBottom: 12,
+  },
+  descansoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
     backgroundColor: COLORS.primary,
-    borderRadius: 14
+    paddingVertical: 12,
+    borderRadius: 10,
+    marginTop: 8,
   },
-  startButtonText: { textAlign: 'center', color: COLORS.white, fontSize: 18, fontWeight: '900' },
+  descansoButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+
+  // BOTÓN PRINCIPAL
+  bottomButtonContainer: {
+    padding: 24,
+    paddingBottom: 40,
+  },
+  startButton: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  startButtonDisabled: {
+    opacity: 0.5,
+  },
+  startButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    paddingVertical: 18,
+  },
+  startButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+
+  // MODAL TIMER
   timerModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.85)',
+    backgroundColor: 'rgba(0,0,0,0.9)',
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
   },
   timerModal: {
-    backgroundColor: COLORS.card,
-    padding: 30,
-    borderRadius: 20,
+    backgroundColor: '#1a1a1a',
+    padding: 32,
+    borderRadius: 24,
     width: '85%',
-    alignItems: 'center'
+    alignItems: 'center',
   },
-  timerModalTitle: { fontSize: 24, fontWeight: 'bold', marginBottom: 15, color: COLORS.text },
-  modalImage: { width: '100%', height: 150, borderRadius: 10, marginBottom: 20 },
-  timerModalTiempo: { fontSize: 56, fontWeight: 'bold', color: COLORS.primary, marginBottom: 10 },
+  timerModalTitle: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    marginBottom: 20,
+  },
+  modalImage: {
+    width: '100%',
+    height: 180,
+    borderRadius: 16,
+    marginBottom: 24,
+  },
+  timerModalTiempo: {
+    fontSize: 64,
+    fontWeight: '900',
+    color: COLORS.primary,
+    marginBottom: 12,
+  },
   timerModalNext: {
-    marginTop: 10,
-    fontSize: 16,
-    color: COLORS.textSecondary,
-    fontWeight: '600'
+    fontSize: 14,
+    color: '#FFFFFF',
+    opacity: 0.7,
+    textAlign: 'center',
+    marginBottom: 24,
   },
   timerModalButton: {
-    marginTop: 30,
     backgroundColor: COLORS.primary,
-    padding: 15,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 12,
     width: '100%',
-    borderRadius: 12
   },
-  timerModalButtonText: { color: COLORS.white, textAlign: 'center', fontWeight: 'bold', fontSize: 16 },
+  timerModalButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
 
+  // MODAL FEEDBACK
   feedbackOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: 'rgba(0,0,0,0.85)',
   },
   feedbackModalContainer: {
     flex: 1,
     justifyContent: 'flex-end',
   },
   feedbackModal: {
-    backgroundColor: COLORS.card,
+    backgroundColor: '#1a1a1a',
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     padding: 28,
     paddingBottom: 40,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 20,
   },
   feedbackHeader: {
     alignItems: 'center',
@@ -845,18 +1216,14 @@ const styles = StyleSheet.create({
   feedbackTitle: {
     fontSize: 26,
     fontWeight: '900',
-    color: COLORS.text,
+    color: '#FFFFFF',
     marginTop: 12,
     marginBottom: 8,
-    letterSpacing: -0.5,
   },
   feedbackSubtitle: {
     fontSize: 14,
-    color: COLORS.textSecondary,
+    color: '#999',
     textAlign: 'center',
-    lineHeight: 20,
-    paddingHorizontal: 20,
-    fontWeight: '500',
   },
   starsContainer: {
     flexDirection: 'row',
@@ -868,16 +1235,15 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   feedbackInput: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: '#0a0a0a',
     borderRadius: 16,
     padding: 16,
     fontSize: 15,
-    color: COLORS.text,
+    color: '#FFFFFF',
     minHeight: 100,
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: COLORS.border + '40',
-    fontWeight: '500',
+    borderColor: '#333',
   },
   feedbackButtons: {
     flexDirection: 'row',
@@ -888,24 +1254,19 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 14,
     alignItems: 'center',
-    backgroundColor: COLORS.surface,
+    backgroundColor: '#0a0a0a',
     borderWidth: 1,
-    borderColor: COLORS.border + '40',
+    borderColor: '#333',
   },
   feedbackButtonSecondaryText: {
-    color: COLORS.textSecondary,
-    fontWeight: '800',
+    color: '#999',
+    fontWeight: '700',
     fontSize: 16,
   },
   feedbackButtonPrimary: {
     flex: 2,
     borderRadius: 14,
     overflow: 'hidden',
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
   },
   feedbackButtonGradient: {
     flexDirection: 'row',
@@ -915,12 +1276,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   feedbackButtonPrimaryText: {
-    color: COLORS.white,
+    color: '#FFFFFF',
     fontWeight: '900',
     fontSize: 16,
-    letterSpacing: 0.5,
   },
 
+  // SUCCESS TOAST
   successToast: {
     position: 'absolute',
     top: 0,
@@ -929,7 +1290,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.85)',
+    backgroundColor: 'rgba(0,0,0,0.9)',
     zIndex: 9999,
   },
   successToastGradient: {
@@ -938,34 +1299,19 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     padding: 32,
     alignItems: 'center',
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-    elevation: 20,
-  },
-  successIconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
   },
   successTitle: {
     fontSize: 32,
     fontWeight: '900',
-    color: COLORS.white,
+    color: '#FFFFFF',
+    marginTop: 16,
     marginBottom: 8,
-    letterSpacing: -0.5,
   },
   successSubtitle: {
     fontSize: 16,
-    color: COLORS.white,
+    color: '#FFFFFF',
     opacity: 0.9,
     marginBottom: 32,
-    fontWeight: '600',
   },
   successStats: {
     flexDirection: 'row',
@@ -984,17 +1330,14 @@ const styles = StyleSheet.create({
   successStatValue: {
     fontSize: 24,
     fontWeight: '900',
-    color: COLORS.white,
+    color: '#FFFFFF',
     marginTop: 8,
-    marginBottom: 4,
-    letterSpacing: -0.5,
   },
   successStatLabel: {
     fontSize: 11,
-    color: COLORS.white,
+    color: '#FFFFFF',
     opacity: 0.8,
-    fontWeight: '700',
-    letterSpacing: 0.5,
+    marginTop: 4,
   },
   successStatDivider: {
     width: 1,
@@ -1009,13 +1352,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 20,
     gap: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255,215,0,0.4)',
   },
   successXPText: {
     fontSize: 22,
     fontWeight: '900',
     color: '#FFD700',
-    letterSpacing: 0.5,
   },
 })

@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react'
 import {
   ActivityIndicator,
   Image,
-  Platform,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -16,7 +16,7 @@ import { COLORS } from '../constants/colors'
 import { supabase } from '../lib/supabase'
 
 export default function RutinasScreen({ navigation }) {
-  const insets = useSafeAreaInsets() // Hook para obtener los insets del SafeArea
+  const insets = useSafeAreaInsets()
   const [loading, setLoading] = useState(true)
   const [rutinas, setRutinas] = useState([])
   const [filtroNivel, setFiltroNivel] = useState('Todas')
@@ -258,7 +258,7 @@ export default function RutinasScreen({ navigation }) {
               {rutina.descripcion || 'Sin descripción disponible.'}
             </Text>
 
-            {/* Botón CORREGIDO - Sin opacidad */}
+            {/* Botón */}
             <TouchableOpacity 
               style={styles.verDetallesButton}
               onPress={() => handleRutinaPress(rutina)}
@@ -284,6 +284,11 @@ export default function RutinasScreen({ navigation }) {
         colors={[COLORS.background, COLORS.surface]} 
         style={styles.loadingContainer}
       >
+        <StatusBar 
+          translucent 
+          backgroundColor="transparent" 
+          barStyle="light-content" 
+        />
         <ActivityIndicator size="large" color={COLORS.primary} />
         <Text style={styles.loadingText}>Cargando rutinas...</Text>
       </LinearGradient>
@@ -292,18 +297,24 @@ export default function RutinasScreen({ navigation }) {
 
   // ==================== RENDER PRINCIPAL ====================
   return (
-    <LinearGradient 
-      colors={[COLORS.background, COLORS.surface]} 
-      style={styles.container}
-    >
-      <View style={[styles.headerOverlay, { paddingTop: insets.top }]} />
+    <View style={styles.container}>
+      <StatusBar 
+        translucent 
+        backgroundColor="transparent" 
+        barStyle="light-content" 
+      />
+      
+      <LinearGradient 
+        colors={[COLORS.background, COLORS.surface]} 
+        style={StyleSheet.absoluteFill}
+      />
 
       <ScrollView 
         contentContainerStyle={[
           styles.scrollContent,
           { 
-            paddingTop: insets.top + 60,
-            paddingBottom: insets.bottom + (Platform.OS === 'ios' ? 100 : 90)
+            paddingTop: insets.top + 16,
+            paddingBottom: Math.max(insets.bottom, 20) + 90
           }
         ]} 
         showsVerticalScrollIndicator={false}
@@ -404,6 +415,7 @@ export default function RutinasScreen({ navigation }) {
         {/* Mensaje vacío */}
         {rutinasFiltradas.length === 0 && (
           <View style={styles.emptyCard}>
+            <MaterialIcons name="fitness-center" size={48} color={COLORS.textSecondary} />
             <Text style={styles.emptyTitle}>No hay rutinas</Text>
             <Text style={styles.emptyText}>
               Cambia el filtro para ver otras rutinas disponibles.
@@ -411,7 +423,7 @@ export default function RutinasScreen({ navigation }) {
           </View>
         )}
       </ScrollView>
-    </LinearGradient>
+    </View>
   )
 }
 
@@ -419,15 +431,6 @@ export default function RutinasScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  headerOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 120,
-    backgroundColor: COLORS.background,
-    zIndex: 10,
   },
   loadingContainer: {
     flex: 1,
@@ -446,6 +449,7 @@ const styles = StyleSheet.create({
   headerContainer: {
     paddingHorizontal: 24,
     marginBottom: 24,
+    marginTop: 8,
   },
   title: {
     fontSize: 32,
@@ -470,6 +474,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: COLORS.border,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
   filtrosToggleContent: {
     flexDirection: 'row',
@@ -489,6 +498,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: COLORS.border,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
   filtroSection: {
     marginBottom: 16,
@@ -508,8 +522,14 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 20,
     backgroundColor: COLORS.card,
-    borderWidth: 0,
+    borderWidth: 1,
+    borderColor: COLORS.border,
     marginRight: 8,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 1,
   },
   filterChipText: {
     fontSize: 14,
@@ -525,11 +545,11 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     overflow: 'hidden',
     backgroundColor: COLORS.card,
+    elevation: 6,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
-    elevation: 6,
   },
   rutinaImage: {
     width: '100%',
@@ -560,11 +580,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
+    elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
-    elevation: 4,
     alignSelf: 'flex-start',
   },
   rutinaBadgeText: {
@@ -594,13 +614,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 10,
-    marginRight: 8,
-    marginBottom: 8,
+    elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
-    elevation: 2,
   },
   infoIcon: {
     marginRight: 4,
@@ -620,11 +638,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     borderRadius: 12,
     gap: 8,
+    elevation: 5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
-    elevation: 5,
   },
   verDetallesText: {
     fontSize: 15,
@@ -632,7 +650,7 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
   },
   emptyCard: {
-    paddingHorizontal: 24,
+    marginHorizontal: 24,
     marginTop: 20,
     backgroundColor: COLORS.card,
     borderRadius: 20,
@@ -640,12 +658,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: COLORS.border,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
   emptyTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: COLORS.text,
     marginBottom: 8,
+    marginTop: 16,
     textAlign: 'center',
   },
   emptyText: {
@@ -653,6 +677,5 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
-    marginBottom: 20,
   },
 })

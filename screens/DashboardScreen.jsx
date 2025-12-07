@@ -9,17 +9,20 @@ import {
   FlatList,
   Image,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { COLORS } from '../constants/colors'
 import { supabase } from '../lib/supabase'
 
 const { width } = Dimensions.get('window')
 
 export default function DashboardScreen({ navigation }) {
+  const insets = useSafeAreaInsets()
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState(null)
   const [userInfo, setUserInfo] = useState(null)
@@ -159,40 +162,63 @@ export default function DashboardScreen({ navigation }) {
       const shuffled = (todosEntrenamientos || []).sort(() => Math.random() - 0.5)
       setEntrenamientosHoy(shuffled.slice(0, 6))
 
+      // Cargar favoritos desde la tabla rutinas_favoritas
       if (user) {
-        const { data: completados, error: errorCompletados } = await supabase
-          .from('entrenamientos_completados')
-          .select('rutina_id')
+        const { data: favoritosData, error: errorFavoritos } = await supabase
+          .from('rutinas_favoritas')
+          .select(`
+            rutina_id,
+            rutinas_predefinidas (*)
+          `)
           .eq('user_id', user.id)
+          .order('fecha_agregado', { ascending: false })
+          .limit(5)
 
-        if (!errorCompletados && completados && completados.length > 0) {
-          const frecuencias = {}
-          completados.forEach(item => {
-            if (item.rutina_id) {
-              frecuencias[item.rutina_id] = (frecuencias[item.rutina_id] || 0) + 1
-            }
-          })
+        if (!errorFavoritos && favoritosData && favoritosData.length > 0) {
+          const rutinasFavoritas = favoritosData
+            .filter(item => item.rutinas_predefinidas)
+            .map(item => ({
+              ...item.rutinas_predefinidas,
+              esFavorito: true
+            }))
+          
+          setFavoritos(rutinasFavoritas)
+        } else {
+          // Fallback: usar el método anterior si no hay favoritos marcados
+          const { data: completados, error: errorCompletados } = await supabase
+            .from('entrenamientos_completados')
+            .select('rutina_id')
+            .eq('user_id', user.id)
 
-          const topRutinas = Object.entries(frecuencias)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 5)
+          if (!errorCompletados && completados && completados.length > 0) {
+            const frecuencias = {}
+            completados.forEach(item => {
+              if (item.rutina_id) {
+                frecuencias[item.rutina_id] = (frecuencias[item.rutina_id] || 0) + 1
+              }
+            })
 
-          if (topRutinas.length > 0) {
-            const ids = topRutinas.map(([id]) => parseInt(id))
+            const topRutinas = Object.entries(frecuencias)
+              .sort((a, b) => b[1] - a[1])
+              .slice(0, 5)
 
-            const { data: rutinasFav, error: errorFav } = await supabase
-              .from('rutinas_predefinidas')
-              .select('*')
-              .in('id', ids)
+            if (topRutinas.length > 0) {
+              const ids = topRutinas.map(([id]) => parseInt(id))
 
-            if (!errorFav && rutinasFav) {
-              const rutinasConConteo = rutinasFav.map(rutina => ({
-                ...rutina,
-                vecesCompletada: frecuencias[rutina.id] || 0,
-              }))
+              const { data: rutinasFav, error: errorFav } = await supabase
+                .from('rutinas_predefinidas')
+                .select('*')
+                .in('id', ids)
 
-              rutinasConConteo.sort((a, b) => b.vecesCompletada - a.vecesCompletada)
-              setFavoritos(rutinasConConteo)
+              if (!errorFav && rutinasFav) {
+                const rutinasConConteo = rutinasFav.map(rutina => ({
+                  ...rutina,
+                  vecesCompletada: frecuencias[rutina.id] || 0,
+                }))
+
+                rutinasConConteo.sort((a, b) => b.vecesCompletada - a.vecesCompletada)
+                setFavoritos(rutinasConConteo)
+              }
             }
           }
         }
@@ -262,36 +288,6 @@ export default function DashboardScreen({ navigation }) {
     return `${dias[hoy.getDay()]}, ${hoy.getDate()} de ${meses[hoy.getMonth()]}`
   }
 
-  const formatearFecha = (fecha) => {
-    const date = new Date(fecha)
-    const hoy = new Date()
-    hoy.setHours(0, 0, 0, 0)
-    const ayer = new Date(hoy)
-    ayer.setDate(ayer.getDate() - 1)
-
-    const fechaEntrenamiento = new Date(date)
-    fechaEntrenamiento.setHours(0, 0, 0, 0)
-
-    if (fechaEntrenamiento.getTime() === hoy.getTime()) return 'Hoy'
-    if (fechaEntrenamiento.getTime() === ayer.getTime()) return 'Ayer'
-
-    const diffTime = Math.abs(hoy - fechaEntrenamiento)
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-
-    if (diffDays <= 7) return `Hace ${diffDays} días`
-
-    return date
-      .toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
-      .replace('.', '')
-  }
-
-  const formatearHora = (fecha) => {
-    return new Date(fecha).toLocaleTimeString('es-ES', {
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-  }
-
   const renderRutinaCard = ({ item }) => (
     <TouchableOpacity
       style={styles.rutinaCard}
@@ -321,10 +317,12 @@ export default function DashboardScreen({ navigation }) {
           <Text style={styles.rutinaBadgeText}>{item.nivel}</Text>
         </View>
 
-        {item.vecesCompletada && (
+        {(item.vecesCompletada || item.esFavorito) && (
           <View style={styles.favoritoCountBadge}>
             <MaterialIcons name="favorite" size={12} color="#FF6B6B" />
-            <Text style={styles.favoritoCountText}>{item.vecesCompletada}x</Text>
+            {item.vecesCompletada && (
+              <Text style={styles.favoritoCountText}>{item.vecesCompletada}x</Text>
+            )}
           </View>
         )}
 
@@ -352,10 +350,16 @@ export default function DashboardScreen({ navigation }) {
 
   if (loading) {
     return (
-      <LinearGradient
-        colors={[COLORS.background, COLORS.surface]}
-        style={styles.loadingContainer}
-      >
+      <View style={styles.container}>
+        <StatusBar 
+          translucent 
+          backgroundColor="transparent" 
+          barStyle="light-content" 
+        />
+        <LinearGradient
+          colors={[COLORS.background, COLORS.surface]}
+          style={StyleSheet.absoluteFill}
+        />
         <View style={styles.loadingContent}>
           <MaterialIcons name="fitness-center" size={60} color={COLORS.primary} />
           <ActivityIndicator
@@ -365,17 +369,31 @@ export default function DashboardScreen({ navigation }) {
           />
           <Text style={styles.loadingText}>Preparando tu espacio...</Text>
         </View>
-      </LinearGradient>
+      </View>
     )
   }
 
   return (
-    <LinearGradient
-      colors={[COLORS.background, COLORS.surface]}
-      style={styles.container}
-    >
+    <View style={styles.container}>
+      <StatusBar 
+        translucent 
+        backgroundColor="transparent" 
+        barStyle="light-content" 
+      />
+      
+      <LinearGradient
+        colors={[COLORS.background, COLORS.surface]}
+        style={StyleSheet.absoluteFill}
+      />
+
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            paddingTop: insets.top + 16,
+            paddingBottom: Math.max(insets.bottom, 20) + 90
+          }
+        ]}
         showsVerticalScrollIndicator={false}
       >
         {/* HEADER */}
@@ -475,7 +493,7 @@ export default function DashboardScreen({ navigation }) {
             <View style={styles.sectionHeader}>
               <View>
                 <Text style={styles.sectionTitle}>Tus Favoritos</Text>
-                <Text style={styles.sectionSubtitle}>Los que más has entrenado</Text>
+                <Text style={styles.sectionSubtitle}>Las rutinas que más amas</Text>
               </View>
               <View style={styles.favoritoBadge}>
                 <MaterialIcons name="favorite" size={16} color="#FF6B6B" />
@@ -551,7 +569,6 @@ export default function DashboardScreen({ navigation }) {
               {actividadReciente.map((sesion) => (
                 <View key={sesion.id} style={styles.sesionCard}>
                   <View style={styles.sesionHeader}>
-                    
                     {sesion.xp_ganada > 0 && (
                       <View style={styles.sesionXpBadge}>
                         <Text style={styles.sesionXpText}>+{sesion.xp_ganada} XP</Text>
@@ -591,10 +608,8 @@ export default function DashboardScreen({ navigation }) {
             </View>
           </View>
         )}
-
-        <View style={styles.bottomSpacing} />
       </ScrollView>
-    </LinearGradient>
+    </View>
   )
 }
 
@@ -602,12 +617,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  loadingContainer: {
+  loadingContent: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingContent: {
     alignItems: 'center',
   },
   loadingText: {
@@ -617,7 +629,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   scrollContent: {
-    paddingTop: 60,
     paddingHorizontal: 20,
   },
   header: {
@@ -660,11 +671,11 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
+    elevation: 6,
     shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
-    elevation: 6,
   },
   rachaContainer: {
     marginBottom: 32,
@@ -675,11 +686,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    elevation: 10,
     shadowColor: '#FF6B6B',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
     shadowRadius: 16,
-    elevation: 10,
     overflow: 'hidden',
   },
   rachaLeft: {
@@ -785,11 +796,11 @@ const styles = StyleSheet.create({
     marginRight: 16,
     overflow: 'hidden',
     backgroundColor: COLORS.card,
+    elevation: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.15,
     shadowRadius: 12,
-    elevation: 8,
     borderWidth: 1,
     borderColor: COLORS.border + '20',
   },
@@ -816,11 +827,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 12,
+    elevation: 4,
     shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.4,
     shadowRadius: 6,
-    elevation: 4,
   },
   rutinaBadgeText: {
     color: COLORS.white,
@@ -873,11 +884,11 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 12,
     gap: 4,
+    elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
-    elevation: 4,
   },
   favoritoCountText: {
     color: '#FF6B6B',
@@ -892,6 +903,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: COLORS.border + '40',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
   emptyText: {
     fontSize: 14,
@@ -919,33 +935,17 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: COLORS.border + '40',
+    elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
-    elevation: 2,
   },
   sesionHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     alignItems: 'center',
     marginBottom: 12,
-  },
-  sesionFecha: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    flex: 1,
-  },
-  sesionFechaText: {
-    fontSize: 13,
-    color: COLORS.primary,
-    fontWeight: '700',
-  },
-  sesionHora: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    fontWeight: '500',
   },
   sesionXpBadge: {
     backgroundColor: '#FFD93D',
@@ -991,8 +991,5 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     color: COLORS.primary,
-  },
-  bottomSpacing: {
-    height: 40,
   },
 })

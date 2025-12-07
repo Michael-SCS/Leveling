@@ -255,7 +255,7 @@ const formatearHora = (hora) => {
               </Text>
               <TouchableOpacity
                 style={styles.emptyButton}
-                onPress={() => navigation.navigate('Home')}
+                onPress={() => navigation.navigate('Rutinas')}
               >
                 <Text style={styles.emptyButtonText}>Explorar Rutinas</Text>
                 <MaterialIcons name="arrow-forward" size={16} color={COLORS.white} />

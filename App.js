@@ -24,7 +24,6 @@ import DashboardScreen from './screens/DashboardScreen'
 import EditarPerfilScreen from './screens/EditarPerfilScreen'
 import HistorialScreen from './screens/HistorialScreen'
 import LoginScreen from './screens/LoginScreen'
-import NotificacionesScreen from './screens/NotificacionesScreen'
 import PerfilScreen from './screens/PerfilScreen'
 import RegisterScreen from './screens/RegisterScreen'
 import RutinaDetalleScreen from './screens/RutinaDetalleScreen'
@@ -163,13 +162,7 @@ function Navigation() {
               animation: 'slide_from_right',
             }}
           />
-          <Stack.Screen 
-            name="Notificaciones" 
-            component={NotificacionesScreen}
-            options={{
-              animation: 'slide_from_right',
-            }}
-          />
+          
         </>
       )}
     </Stack.Navigator>
