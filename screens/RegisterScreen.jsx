@@ -458,9 +458,14 @@ export default function RegisterScreen({ navigation }) {
           onPress={() => toggleEquipamiento('Barra y discos')}
         />
         <EquipmentButton 
-          title="📦 Banco" 
-          selected={equipamiento.includes('Banco')}
-          onPress={() => toggleEquipamiento('Banco')}
+          title="🪑 Silla" 
+          selected={equipamiento.includes('Silla ')}
+          onPress={() => toggleEquipamiento('Silla')}
+        />
+        <EquipmentButton 
+          title="💧 Botella con agua" 
+          selected={equipamiento.includes('Botella con agua')}
+          onPress={() => toggleEquipamiento('Botella con agua')}
         />
         <EquipmentButton 
           title="🤸 Colchoneta" 
@@ -472,6 +477,13 @@ export default function RegisterScreen({ navigation }) {
           selected={equipamiento.includes('Cuerda saltar')}
           onPress={() => toggleEquipamiento('Cuerda saltar')}
         />
+        <EquipmentButton 
+          title="🏀 Balón" 
+          selected={equipamiento.includes('Balón')}
+          onPress={() => toggleEquipamiento('Balón')}
+        />
+
+        
       </View>
 
       <View style={styles.noEquipmentContainer}>

@@ -1,5 +1,6 @@
-import React, { useState } from 'react'
-import { View, TextInput, Text, StyleSheet, TouchableOpacity } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
+import { useState } from 'react'
+import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { COLORS } from '../constants/colors'
 
 export default function AuthInput({ 
@@ -44,13 +45,23 @@ export default function AuthInput({
           <TouchableOpacity 
             onPress={() => setShowPassword(!showPassword)}
             style={styles.eyeIcon}
+            activeOpacity={0.6}
           >
-            <Text style={styles.eyeText}>{showPassword ? '👁️' : '👁️‍🗨️'}</Text>
+            <Ionicons 
+              name={showPassword ? 'eye-outline' : 'eye-off-outline'} 
+              size={22} 
+              color={isFocused ? COLORS.primary : COLORS.textSecondary}
+            />
           </TouchableOpacity>
         )}
       </View>
 
-      {error && <Text style={styles.errorText}>{error}</Text>}
+      {error && (
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle" size={14} color={COLORS.error} />
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      )}
     </View>
   )
 }
@@ -64,41 +75,58 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.text,
     marginBottom: 8,
+    letterSpacing: 0.2,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.surface,
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 2,
     borderColor: COLORS.border,
     paddingHorizontal: 16,
+    height: 56,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   inputContainerFocused: {
     borderColor: COLORS.primary,
+    shadowColor: COLORS.primary,
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
   inputContainerError: {
     borderColor: COLORS.error,
+    backgroundColor: COLORS.error + '08',
   },
   iconContainer: {
     marginRight: 12,
   },
   input: {
     flex: 1,
-    paddingVertical: 16,
     fontSize: 16,
     color: COLORS.text,
+    fontWeight: '500',
   },
   eyeIcon: {
     padding: 8,
+    marginRight: -4,
   },
-  eyeText: {
-    fontSize: 20,
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    marginLeft: 4,
+    gap: 4,
   },
   errorText: {
     fontSize: 12,
     color: COLORS.error,
-    marginTop: 4,
-    marginLeft: 4,
+    fontWeight: '500',
+    letterSpacing: 0.2,
   },
 })

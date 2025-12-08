@@ -2,6 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { useEffect, useState } from 'react'
 import {
   Alert,
+  Animated,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -21,9 +22,26 @@ export default function LoginScreen({ navigation }) {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState({})
+  const fadeAnim = useState(new Animated.Value(0))[0]
+  const slideAnim = useState(new Animated.Value(50))[0]
 
   useEffect(() => {
     checkSession()
+    
+    // Animación de entrada
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 20,
+        friction: 7,
+        useNativeDriver: true,
+      }),
+    ]).start()
   }, [])
 
   const checkSession = async () => {
@@ -87,27 +105,50 @@ export default function LoginScreen({ navigation }) {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Header con Logo */}
-          <View style={styles.header}>
+          {/* Header con Logo - Animado */}
+          <Animated.View 
+            style={[
+              styles.header,
+              {
+                opacity: fadeAnim,
+                transform: [{ translateY: slideAnim }]
+              }
+            ]}
+          >
             <View style={styles.logoContainer}>
-              {/* Opción 1: Si tienes la imagen en assets */}
-              {<Image 
+              <View style={styles.logoGlow} />
+              <Image 
                 source={require('../assets/images/FITFLOW.png')} 
                 style={styles.logo}
                 resizeMode="contain"
-              /> }
+              />
             </View>
             
-            <Text style={styles.title}>Bienvenido a</Text>
+            <Text style={styles.title}>Bienvenido de nuevo</Text>
             <Text style={styles.appName}>FITFLOW</Text>
-            <Text style={styles.subtitle}>
-              Transforma tu cuerpo, transforma tu vida
-            </Text>
-          </View>
+            <View style={styles.subtitleContainer}>
+              <View style={styles.accentLine} />
+              <Text style={styles.subtitle}>
+                Transforma tu cuerpo, transforma tu vida
+              </Text>
+              <View style={styles.accentLine} />
+            </View>
+          </Animated.View>
 
-          {/* Form Card */}
-          <View style={styles.formCard}>
-            <Text style={styles.formTitle}>Iniciar Sesión</Text>
+          {/* Form Card - Animado */}
+          <Animated.View 
+            style={[
+              styles.formCard,
+              {
+                opacity: fadeAnim,
+                transform: [{ translateY: slideAnim }]
+              }
+            ]}
+          >
+            <View style={styles.formHeader}>
+              <Text style={styles.formTitle}>Iniciar Sesión</Text>
+              <View style={styles.formAccent} />
+            </View>
             
             <View style={styles.inputsContainer}>
               <AuthInput
@@ -132,6 +173,7 @@ export default function LoginScreen({ navigation }) {
               <TouchableOpacity 
                 style={styles.forgotPassword}
                 onPress={() => {/* Navegar a recuperar contraseña */}}
+                activeOpacity={0.7}
               >
                 <Text style={styles.forgotPasswordText}>
                   ¿Olvidaste tu contraseña?
@@ -139,16 +181,20 @@ export default function LoginScreen({ navigation }) {
               </TouchableOpacity>
             </View>
 
-            <Button
-              title="Iniciar Sesión"
-              onPress={handleLogin}
-              loading={loading}
-              style={styles.loginButton}
-            />
+            <View style={styles.buttonContainer}>
+              <Button
+                title="Iniciar Sesión"
+                onPress={handleLogin}
+                loading={loading}
+                style={styles.loginButton}
+              />
+            </View>
 
             <View style={styles.divider}>
               <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>o</Text>
+              <View style={styles.dividerCircle}>
+                <Text style={styles.dividerText}>o</Text>
+              </View>
               <View style={styles.dividerLine} />
             </View>
 
@@ -158,13 +204,36 @@ export default function LoginScreen({ navigation }) {
               variant="outline"
               style={styles.registerButton}
             />
-          </View>
+          </Animated.View>
 
           {/* Footer */}
           <View style={styles.footerContainer}>
             <Text style={styles.footer}>
               Al continuar, aceptas nuestros{' '}
-              <Text style={styles.footerLink}>términos y condiciones</Text>
+              <Text 
+                style={styles.footerLink}
+                onPress={() => {
+                  Alert.alert(
+                    'Términos y Condiciones',
+                    'Términos y Condiciones de FITFLOW (v1.0.0)\n\n' +
+                    '1. Aceptación de Términos\n' +
+                    'Al usar esta aplicación, aceptas estos términos y condiciones. Si no estás de acuerdo, no uses la aplicación.\n\n' +
+                    '2. Descargo de Responsabilidad Médica\n' +
+                    'La información proporcionada en esta aplicación es solo para fines informativos y de fitness. NO sustituye el consejo, diagnóstico o tratamiento médico profesional. Siempre consulta a un médico antes de comenzar cualquier programa de ejercicios o hacer cambios en tu dieta.\n\n' +
+                    '3. Datos del Usuario\n' +
+                    'Tus datos personales, incluyendo métricas y progreso, se almacenan de forma segura (usando Supabase) únicamente para proporcionarte el servicio de rutinas personalizadas.\n\n' +
+                    '4. Modificaciones del Servicio\n' +
+                    'Nos reservamos el derecho de modificar o descontinuar el servicio (o cualquier parte de su contenido) sin previo aviso en cualquier momento.\n\n' +
+                    '5. Derechos de Autor\n' +
+                    'Todo el contenido de la aplicación es propiedad nuestra y está protegido por derechos de autor.\n\n' +
+                    'Al continuar usando la app, confirmas que has leído y aceptado estos términos.',
+                    [{ text: 'Entendido', style: 'default' }],
+                    { cancelable: true }
+                  )
+                }}
+              >
+                términos y condiciones
+              </Text>
             </Text>
           </View>
         </ScrollView>
@@ -182,126 +251,180 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 20,
-    paddingTop: 50,
+    paddingHorizontal: 24,
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
     paddingBottom: 30,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 36,
   },
   logoContainer: {
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  // Estilos para cuando agregues tu logo real
-  logo: {
-    width: 100,
-    height: 100,
-    borderRadius: 20,
-  },
-  // Contenedor temporal para el emoji
-  emojiContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 20,
-    backgroundColor: COLORS.primary + '20',
-    justifyContent: 'center',
+    marginBottom: 24,
+    position: 'relative',
     alignItems: 'center',
-    borderWidth: 3,
-    borderColor: COLORS.primary,
+    justifyContent: 'center',
   },
-  emoji: {
-    fontSize: 50,
+  logoGlow: {
+    position: 'absolute',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: COLORS.primary,
+    opacity: 0.15,
+    transform: [{ scale: 1.1 }],
+  },
+  logo: {
+    width: 110,
+    height: 110,
+    borderRadius: 24,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 10,
   },
   title: {
-    fontSize: 18,
+    fontSize: 16,
     color: COLORS.textSecondary,
-    marginBottom: 4,
+    marginBottom: 6,
+    fontWeight: '500',
+    letterSpacing: 0.5,
   },
   appName: {
-    fontSize: 36,
-    fontWeight: 'bold',
+    fontSize: 42,
+    fontWeight: '800',
     color: COLORS.primary,
-    letterSpacing: 2,
-    marginBottom: 8,
+    letterSpacing: 3,
+    marginBottom: 12,
+    textShadowColor: COLORS.primary + '40',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
+  },
+  subtitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 20,
+  },
+  accentLine: {
+    width: 30,
+    height: 2,
+    backgroundColor: COLORS.primary,
+    opacity: 0.5,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: COLORS.textSecondary,
     textAlign: 'center',
-    paddingHorizontal: 20,
+    fontWeight: '500',
+    letterSpacing: 0.3,
   },
   formCard: {
     backgroundColor: COLORS.surface,
-    borderRadius: 24,
-    padding: 24,
-    marginBottom: 20,
+    borderRadius: 28,
+    padding: 28,
+    marginBottom: 24,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 12,
+    borderWidth: 1,
+    borderColor: COLORS.primary + '10',
+  },
+  formHeader: {
+    alignItems: 'center',
+    marginBottom: 28,
   },
   formTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 26,
+    fontWeight: '700',
     color: COLORS.text,
-    marginBottom: 24,
-    textAlign: 'center',
+    marginBottom: 8,
+    letterSpacing: 0.5,
+  },
+  formAccent: {
+    width: 60,
+    height: 4,
+    backgroundColor: COLORS.primary,
+    borderRadius: 2,
   },
   inputsContainer: {
-    marginBottom: 16,
+    marginBottom: 20,
+    gap: 4,
   },
   forgotPassword: {
     alignSelf: 'flex-end',
-    marginTop: 8,
-    marginBottom: 8,
+    marginTop: 12,
+    marginBottom: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
   },
   forgotPasswordText: {
     fontSize: 14,
     color: COLORS.primary,
     fontWeight: '600',
+    letterSpacing: 0.2,
+  },
+  buttonContainer: {
+    marginTop: 12,
   },
   loginButton: {
-    marginTop: 8,
-    height: 56,
-    borderRadius: 16,
+    height: 58,
+    borderRadius: 18,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
   },
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 24,
+    marginVertical: 28,
+    position: 'relative',
   },
   dividerLine: {
     flex: 1,
-    height: 1,
-    backgroundColor: COLORS.textMuted + '40',
+    height: 1.5,
+    backgroundColor: COLORS.textMuted + '30',
+  },
+  dividerCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.background,
+    borderWidth: 1.5,
+    borderColor: COLORS.textMuted + '30',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: -18,
+    zIndex: 1,
   },
   dividerText: {
-    marginHorizontal: 16,
-    fontSize: 14,
+    fontSize: 13,
     color: COLORS.textSecondary,
     fontWeight: '600',
   },
   registerButton: {
-    height: 56,
-    borderRadius: 16,
+    height: 58,
+    borderRadius: 18,
     borderWidth: 2,
+    borderColor: COLORS.primary,
+    backgroundColor: 'transparent',
   },
   footerContainer: {
     marginTop: 'auto',
-    paddingTop: 20,
+    paddingTop: 24,
+    paddingBottom: 8,
   },
   footer: {
     textAlign: 'center',
     fontSize: 12,
     color: COLORS.textMuted,
     lineHeight: 18,
+    letterSpacing: 0.2,
   },
   footerLink: {
     color: COLORS.primary,

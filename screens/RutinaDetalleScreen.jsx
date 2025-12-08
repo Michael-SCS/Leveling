@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  Dimensions,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -18,6 +19,13 @@ import {
 } from 'react-native';
 import { COLORS } from '../constants/colors';
 import { supabase } from '../lib/supabase';
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+// Función de escalado responsive
+const scale = (size) => (SCREEN_WIDTH / 375) * size;
+const verticalScale = (size) => (SCREEN_HEIGHT / 812) * size;
+const moderateScale = (size, factor = 0.5) => size + (scale(size) - size) * factor;
 
 export default function RutinaDetalleScreen({ route, navigation }) {
   const { rutinaId } = route.params
@@ -501,15 +509,12 @@ export default function RutinaDetalleScreen({ route, navigation }) {
   }
 
   const parsearParteTrabajada = (partes) => {
-    // Si ya es un array, devolverlo limpio
     if (Array.isArray(partes)) {
       return partes.filter(Boolean)
     }
-    // Si es string, hacer split
     if (typeof partes === 'string') {
       return partes.split(',').map(p => p.trim()).filter(Boolean)
     }
-    // Si es null/undefined, devolver array vacío
     return []
   }
 
@@ -554,7 +559,7 @@ export default function RutinaDetalleScreen({ route, navigation }) {
                 } else navigation.goBack()
               }}
             >
-              <MaterialIcons name="arrow-back" size={24} color="#FFFFFF" />
+              <MaterialIcons name="arrow-back" size={moderateScale(24)} color="#FFFFFF" />
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -563,7 +568,7 @@ export default function RutinaDetalleScreen({ route, navigation }) {
             >
               <MaterialIcons
                 name={esFavorito ? "favorite" : "favorite-border"}
-                size={24}
+                size={moderateScale(24)}
                 color={esFavorito ? "#FF6B6B" : "#FFFFFF"}
               />
             </TouchableOpacity>
@@ -572,7 +577,7 @@ export default function RutinaDetalleScreen({ route, navigation }) {
           {/* Timer flotante */}
           {entrenandoActivo && (
             <View style={styles.timerFloating}>
-              <MaterialIcons name="timer" size={20} color="#FFFFFF" />
+              <MaterialIcons name="timer" size={moderateScale(20)} color="#FFFFFF" />
               <Text style={styles.timerFloatingText}>{formatearTiempo(tiempoTranscurrido)}</Text>
             </View>
           )}
@@ -584,19 +589,19 @@ export default function RutinaDetalleScreen({ route, navigation }) {
 
           <View style={styles.metaRow}>
             <View style={styles.metaBadge}>
-              <MaterialIcons name="signal-cellular-alt" size={16} color="#FFFFFF" />
+              <MaterialIcons name="signal-cellular-alt" size={moderateScale(16)} color="#FFFFFF" />
               <Text style={styles.metaText}>{rutina?.nivel}</Text>
             </View>
 
             <View style={styles.metaBadge}>
-              <MaterialIcons name="fitness-center" size={16} color="#FFFFFF" />
+              <MaterialIcons name="fitness-center" size={moderateScale(16)} color="#FFFFFF" />
               <Text style={styles.metaText}>
                 {rutina?.equipo ? 'Con equipo' : 'Sin equipo'}
               </Text>
             </View>
 
             <View style={styles.metaBadge}>
-              <MaterialIcons name="place" size={16} color="#FFFFFF" />
+              <MaterialIcons name="place" size={moderateScale(16)} color="#FFFFFF" />
               <Text style={styles.metaText}>{rutina?.lugar || 'No especificado'}</Text>
             </View>
           </View>
@@ -646,7 +651,7 @@ export default function RutinaDetalleScreen({ route, navigation }) {
                     >
                       <MaterialIcons
                         name={completado ? "check" : "radio-button-unchecked"}
-                        size={24}
+                        size={moderateScale(24)}
                         color={completado ? "#4CAF50" : "#666"}
                       />
                     </TouchableOpacity>
@@ -678,7 +683,7 @@ export default function RutinaDetalleScreen({ route, navigation }) {
                     style={styles.descansoButton}
                     onPress={() => iniciarDescanso(item, item.tiempo_descanso_segundos)}
                   >
-                    <MaterialIcons name="schedule" size={18} color="#FFFFFF" />
+                    <MaterialIcons name="schedule" size={moderateScale(18)} color="#FFFFFF" />
                     <Text style={styles.descansoButtonText}>
                       Descanso ({item.tiempo_descanso_segundos || 60}s)
                     </Text>
@@ -697,7 +702,7 @@ export default function RutinaDetalleScreen({ route, navigation }) {
                 colors={[COLORS.primary, '#8B7FE8']}
                 style={styles.startButtonGradient}
               >
-                <MaterialIcons name="play-arrow" size={28} color="#FFFFFF" />
+                <MaterialIcons name="play-arrow" size={moderateScale(28)} color="#FFFFFF" />
                 <Text style={styles.startButtonText}>Iniciar Entrenamiento</Text>
               </LinearGradient>
             </TouchableOpacity>
@@ -711,7 +716,7 @@ export default function RutinaDetalleScreen({ route, navigation }) {
                 colors={['#4CAF50', '#45a049']}
                 style={styles.startButtonGradient}
               >
-                <MaterialIcons name="check-circle" size={28} color="#FFFFFF" />
+                <MaterialIcons name="check-circle" size={moderateScale(28)} color="#FFFFFF" />
                 <Text style={styles.startButtonText}>Finalizar</Text>
               </LinearGradient>
             </TouchableOpacity>
@@ -761,7 +766,7 @@ export default function RutinaDetalleScreen({ route, navigation }) {
             <View style={styles.feedbackModalContainer}>
               <View style={styles.feedbackModal}>
                 <View style={styles.feedbackHeader}>
-                  <MaterialIcons name="chat-bubble-outline" size={32} color={COLORS.primary} />
+                  <MaterialIcons name="chat-bubble-outline" size={moderateScale(32)} color={COLORS.primary} />
                   <Text style={styles.feedbackTitle}>Tu opinión importa</Text>
                   <Text style={styles.feedbackSubtitle}>
                     ¿Qué tal estuvo el entrenamiento?
@@ -777,7 +782,7 @@ export default function RutinaDetalleScreen({ route, navigation }) {
                     >
                       <MaterialIcons
                         name={star <= calificacion ? "star" : "star-border"}
-                        size={40}
+                        size={moderateScale(40)}
                         color={star <= calificacion ? "#FFD700" : COLORS.textSecondary}
                       />
                     </TouchableOpacity>
@@ -819,7 +824,7 @@ export default function RutinaDetalleScreen({ route, navigation }) {
                       style={styles.feedbackButtonGradient}
                     >
                       <Text style={styles.feedbackButtonPrimaryText}>Enviar</Text>
-                      <MaterialIcons name="send" size={18} color="#FFFFFF" />
+                      <MaterialIcons name="send" size={moderateScale(18)} color="#FFFFFF" />
                     </LinearGradient>
                   </TouchableOpacity>
                 </View>
@@ -844,13 +849,13 @@ export default function RutinaDetalleScreen({ route, navigation }) {
             colors={[COLORS.primary, '#8B7FE8']}
             style={styles.successToastGradient}
           >
-            <MaterialIcons name="celebration" size={48} color="#FFFFFF" />
+            <MaterialIcons name="celebration" size={moderateScale(48)} color="#FFFFFF" />
             <Text style={styles.successTitle}>¡Felicidades!</Text>
             <Text style={styles.successSubtitle}>Entrenamiento completado</Text>
 
             <View style={styles.successStats}>
               <View style={styles.successStatItem}>
-                <MaterialIcons name="schedule" size={24} color="#FFD700" />
+                <MaterialIcons name="schedule" size={moderateScale(24)} color="#FFD700" />
                 <Text style={styles.successStatValue}>{datosEntrenamiento?.duracionMinutos}</Text>
                 <Text style={styles.successStatLabel}>minutos</Text>
               </View>
@@ -858,7 +863,7 @@ export default function RutinaDetalleScreen({ route, navigation }) {
               <View style={styles.successStatDivider} />
 
               <View style={styles.successStatItem}>
-                <MaterialIcons name="fitness-center" size={24} color="#FFD700" />
+                <MaterialIcons name="fitness-center" size={moderateScale(24)} color="#FFD700" />
                 <Text style={styles.successStatValue}>{ejerciciosCompletados.size}/{ejercicios.length}</Text>
                 <Text style={styles.successStatLabel}>ejercicios</Text>
               </View>
@@ -866,14 +871,14 @@ export default function RutinaDetalleScreen({ route, navigation }) {
               <View style={styles.successStatDivider} />
 
               <View style={styles.successStatItem}>
-                <MaterialIcons name="local-fire-department" size={24} color="#FFD700" />
+                <MaterialIcons name="local-fire-department" size={moderateScale(24)} color="#FFD700" />
                 <Text style={styles.successStatValue}>{datosEntrenamiento?.calorias}</Text>
                 <Text style={styles.successStatLabel}>kcal</Text>
               </View>
             </View>
 
             <View style={styles.successXPContainer}>
-              <MaterialIcons name="star" size={28} color="#FFD700" />
+              <MaterialIcons name="star" size={moderateScale(28)} color="#FFD700" />
               <Text style={styles.successXPText}>+{datosEntrenamiento?.xpGanada} XP</Text>
             </View>
           </LinearGradient>
@@ -898,9 +903,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  // HEADER
+  // HEADER - Responsive
   headerContainer: {
-    height: 300,
+    height: verticalScale(300),
+    minHeight: 250,
+    maxHeight: 350,
     position: 'relative',
   },
   headerImage: {
@@ -909,17 +916,17 @@ const styles = StyleSheet.create({
   },
   headerButtons: {
     position: 'absolute',
-    top: 50,
-    left: 20,
-    right: 20,
+    top: Platform.OS === 'ios' ? verticalScale(50) : verticalScale(40),
+    left: scale(20),
+    right: scale(20),
     flexDirection: 'row',
     justifyContent: 'space-between',
     zIndex: 10,
   },
   iconButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: moderateScale(44),
+    height: moderateScale(44),
+    borderRadius: moderateScale(22),
     backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -931,108 +938,109 @@ const styles = StyleSheet.create({
   },
   timerFloating: {
     position: 'absolute',
-    bottom: 20,
-    right: 20,
+    bottom: verticalScale(20),
+    right: scale(20),
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(0,0,0,0.8)',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    gap: 8,
+    paddingHorizontal: scale(16),
+    paddingVertical: verticalScale(10),
+    borderRadius: moderateScale(20),
+    gap: scale(8),
   },
   timerFloatingText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: moderateScale(16),
     fontWeight: '800',
   },
 
-  // SECCIÓN INFO
+  // SECCIÓN INFO - Responsive
   infoSection: {
     backgroundColor: '#000000',
-    padding: 24,
-    paddingTop: 28,
+    padding: scale(24),
+    paddingTop: verticalScale(28),
   },
   titulo: {
-    fontSize: 28,
+    fontSize: moderateScale(28),
     fontWeight: '900',
     color: '#FFFFFF',
-    marginBottom: 16,
+    marginBottom: verticalScale(16),
     letterSpacing: 1,
-    lineHeight: 34,
+    lineHeight: moderateScale(34),
   },
   metaRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 20,
+    flexWrap: 'wrap',
+    gap: scale(12),
+    marginBottom: verticalScale(20),
   },
   metaBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: scale(6),
     backgroundColor: '#1a1a1a',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: scale(14),
+    paddingVertical: verticalScale(8),
+    borderRadius: moderateScale(20),
   },
   metaText: {
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: moderateScale(13),
     fontWeight: '600',
   },
   descripcion: {
     color: '#FFFFFF',
-    fontSize: 15,
-    lineHeight: 24,
-    marginBottom: 24,
+    fontSize: moderateScale(15),
+    lineHeight: moderateScale(24),
+    marginBottom: verticalScale(24),
     opacity: 0.9,
   },
 
-  // PARTES DEL CUERPO
+  // PARTES DEL CUERPO - Responsive
   partesSection: {
-    marginTop: 8,
+    marginTop: verticalScale(8),
   },
   partesTitle: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: moderateScale(16),
     fontWeight: '700',
-    marginBottom: 12,
+    marginBottom: verticalScale(12),
   },
   partesTags: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: scale(8),
   },
   parteTag: {
     backgroundColor: COLORS.primary + '30',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 16,
+    paddingHorizontal: scale(14),
+    paddingVertical: verticalScale(8),
+    borderRadius: moderateScale(16),
     borderWidth: 1,
     borderColor: COLORS.primary + '50',
   },
   parteTagText: {
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: moderateScale(13),
     fontWeight: '600',
   },
 
-  // EJERCICIOS
+  // EJERCICIOS - Responsive
   ejerciciosSection: {
-    padding: 24,
-    paddingTop: 8,
+    padding: scale(24),
+    paddingTop: verticalScale(8),
   },
   ejerciciosSectionTitle: {
     color: '#FFFFFF',
-    fontSize: 20,
+    fontSize: moderateScale(20),
     fontWeight: '900',
-    marginBottom: 20,
+    marginBottom: verticalScale(20),
   },
   ejercicioCard: {
     backgroundColor: '#1a1a1a',
-    borderRadius: 16,
-    padding: 18,
-    marginBottom: 16,
+    borderRadius: moderateScale(16),
+    padding: scale(18),
+    marginBottom: verticalScale(16),
     borderWidth: 2,
     borderColor: '#2a2a2a',
   },
@@ -1043,30 +1051,30 @@ const styles = StyleSheet.create({
   ejercicioHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
-    gap: 12,
+    marginBottom: verticalScale(10),
+    gap: scale(12),
   },
   ejercicioNumero: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: moderateScale(32),
+    height: moderateScale(32),
+    borderRadius: moderateScale(16),
     backgroundColor: COLORS.primary,
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: moderateScale(16),
     fontWeight: '900',
     textAlign: 'center',
-    lineHeight: 32,
+    lineHeight: moderateScale(32),
   },
   ejercicioNombre: {
     flex: 1,
     color: '#FFFFFF',
-    fontSize: 17,
+    fontSize: moderateScale(17),
     fontWeight: '700',
   },
   checkButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: moderateScale(40),
+    height: moderateScale(40),
+    borderRadius: moderateScale(20),
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1075,47 +1083,47 @@ const styles = StyleSheet.create({
   },
   ejercicioSeries: {
     color: COLORS.primary,
-    fontSize: 14,
+    fontSize: moderateScale(14),
     fontWeight: '600',
-    marginBottom: 14,
+    marginBottom: verticalScale(14),
   },
   ejercicioGif: {
     width: '100%',
-    height: 200,
-    borderRadius: 12,
-    marginBottom: 12,
+    height: verticalScale(200),
+    borderRadius: moderateScale(12),
+    marginBottom: verticalScale(12),
     backgroundColor: '#000',
   },
   ejercicioInstrucciones: {
     color: '#FFFFFF',
-    fontSize: 13,
-    lineHeight: 20,
+    fontSize: moderateScale(13),
+    lineHeight: moderateScale(20),
     opacity: 0.8,
-    marginBottom: 12,
+    marginBottom: verticalScale(12),
   },
   descansoButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: scale(8),
     backgroundColor: COLORS.primary,
-    paddingVertical: 12,
-    borderRadius: 10,
-    marginTop: 8,
+    paddingVertical: verticalScale(12),
+    borderRadius: moderateScale(10),
+    marginTop: verticalScale(8),
   },
   descansoButtonText: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: moderateScale(14),
     fontWeight: '700',
   },
 
-  // BOTÓN PRINCIPAL
+  // BOTÓN PRINCIPAL - Responsive
   bottomButtonContainer: {
-    padding: 24,
-    paddingBottom: 40,
+    padding: scale(24),
+    paddingBottom: verticalScale(40),
   },
   startButton: {
-    borderRadius: 16,
+    borderRadius: moderateScale(16),
     overflow: 'hidden',
     shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 8 },
@@ -1130,17 +1138,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
-    paddingVertical: 18,
+    gap: scale(12),
+    paddingVertical: verticalScale(18),
   },
   startButtonText: {
     color: '#FFFFFF',
-    fontSize: 18,
+    fontSize: moderateScale(18),
     fontWeight: '900',
     letterSpacing: 0.5,
   },
 
-  // MODAL TIMER
+  // MODAL TIMER - Responsive
   timerModalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.9)',
@@ -1149,51 +1157,52 @@ const styles = StyleSheet.create({
   },
   timerModal: {
     backgroundColor: '#1a1a1a',
-    padding: 32,
-    borderRadius: 24,
-    width: '85%',
+    padding: scale(32),
+    borderRadius: moderateScale(24),
+    width: SCREEN_WIDTH * 0.85,
+    maxWidth: 400,
     alignItems: 'center',
   },
   timerModalTitle: {
-    fontSize: 24,
+    fontSize: moderateScale(24),
     fontWeight: '900',
     color: '#FFFFFF',
-    marginBottom: 20,
+    marginBottom: verticalScale(20),
   },
   modalImage: {
     width: '100%',
-    height: 180,
-    borderRadius: 16,
-    marginBottom: 24,
+    height: verticalScale(180),
+    borderRadius: moderateScale(16),
+    marginBottom: verticalScale(24),
   },
   timerModalTiempo: {
-    fontSize: 64,
+    fontSize: moderateScale(64),
     fontWeight: '900',
     color: COLORS.primary,
-    marginBottom: 12,
+    marginBottom: verticalScale(12),
   },
   timerModalNext: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     color: '#FFFFFF',
     opacity: 0.7,
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: verticalScale(24),
   },
   timerModalButton: {
     backgroundColor: COLORS.primary,
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-    borderRadius: 12,
+    paddingVertical: verticalScale(14),
+    paddingHorizontal: scale(32),
+    borderRadius: moderateScale(12),
     width: '100%',
   },
   timerModalButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: moderateScale(16),
     fontWeight: '700',
     textAlign: 'center',
   },
 
-  // MODAL FEEDBACK
+  // MODAL FEEDBACK - Responsive
   feedbackOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.85)',
@@ -1204,55 +1213,55 @@ const styles = StyleSheet.create({
   },
   feedbackModal: {
     backgroundColor: '#1a1a1a',
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    padding: 28,
-    paddingBottom: 40,
+    borderTopLeftRadius: moderateScale(30),
+    borderTopRightRadius: moderateScale(30),
+    padding: scale(28),
+    paddingBottom: verticalScale(40),
   },
   feedbackHeader: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: verticalScale(24),
   },
   feedbackTitle: {
-    fontSize: 26,
+    fontSize: moderateScale(26),
     fontWeight: '900',
     color: '#FFFFFF',
-    marginTop: 12,
-    marginBottom: 8,
+    marginTop: verticalScale(12),
+    marginBottom: verticalScale(8),
   },
   feedbackSubtitle: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     color: '#999',
     textAlign: 'center',
   },
   starsContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 8,
-    marginBottom: 24,
+    gap: scale(8),
+    marginBottom: verticalScale(24),
   },
   starButton: {
-    padding: 4,
+    padding: scale(4),
   },
   feedbackInput: {
     backgroundColor: '#0a0a0a',
-    borderRadius: 16,
-    padding: 16,
-    fontSize: 15,
+    borderRadius: moderateScale(16),
+    padding: scale(16),
+    fontSize: moderateScale(15),
     color: '#FFFFFF',
-    minHeight: 100,
-    marginBottom: 24,
+    minHeight: verticalScale(100),
+    marginBottom: verticalScale(24),
     borderWidth: 1,
     borderColor: '#333',
   },
   feedbackButtons: {
     flexDirection: 'row',
-    gap: 12,
+    gap: scale(12),
   },
   feedbackButtonSecondary: {
     flex: 1,
-    padding: 16,
-    borderRadius: 14,
+    padding: verticalScale(16),
+    borderRadius: moderateScale(14),
     alignItems: 'center',
     backgroundColor: '#0a0a0a',
     borderWidth: 1,
@@ -1261,27 +1270,27 @@ const styles = StyleSheet.create({
   feedbackButtonSecondaryText: {
     color: '#999',
     fontWeight: '700',
-    fontSize: 16,
+    fontSize: moderateScale(16),
   },
   feedbackButtonPrimary: {
     flex: 2,
-    borderRadius: 14,
+    borderRadius: moderateScale(14),
     overflow: 'hidden',
   },
   feedbackButtonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 16,
-    gap: 8,
+    padding: verticalScale(16),
+    gap: scale(8),
   },
   feedbackButtonPrimaryText: {
     color: '#FFFFFF',
     fontWeight: '900',
-    fontSize: 16,
+    fontSize: moderateScale(16),
   },
 
-  // SUCCESS TOAST
+  // SUCCESS TOAST - Responsive
   successToast: {
     position: 'absolute',
     top: 0,
@@ -1294,24 +1303,24 @@ const styles = StyleSheet.create({
     zIndex: 9999,
   },
   successToastGradient: {
-    width: '90%',
+    width: SCREEN_WIDTH * 0.9,
     maxWidth: 400,
-    borderRadius: 24,
-    padding: 32,
+    borderRadius: moderateScale(24),
+    padding: scale(32),
     alignItems: 'center',
   },
   successTitle: {
-    fontSize: 32,
+    fontSize: moderateScale(32),
     fontWeight: '900',
     color: '#FFFFFF',
-    marginTop: 16,
-    marginBottom: 8,
+    marginTop: verticalScale(16),
+    marginBottom: verticalScale(8),
   },
   successSubtitle: {
-    fontSize: 16,
+    fontSize: moderateScale(16),
     color: '#FFFFFF',
     opacity: 0.9,
-    marginBottom: 32,
+    marginBottom: verticalScale(32),
   },
   successStats: {
     flexDirection: 'row',
@@ -1319,42 +1328,42 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
+    borderRadius: moderateScale(16),
+    padding: scale(20),
+    marginBottom: verticalScale(24),
   },
   successStatItem: {
     alignItems: 'center',
     flex: 1,
   },
   successStatValue: {
-    fontSize: 24,
+    fontSize: moderateScale(24),
     fontWeight: '900',
     color: '#FFFFFF',
-    marginTop: 8,
+    marginTop: verticalScale(8),
   },
   successStatLabel: {
-    fontSize: 11,
+    fontSize: moderateScale(11),
     color: '#FFFFFF',
     opacity: 0.8,
-    marginTop: 4,
+    marginTop: verticalScale(4),
   },
   successStatDivider: {
     width: 1,
-    height: 40,
+    height: verticalScale(40),
     backgroundColor: 'rgba(255,255,255,0.3)',
   },
   successXPContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255,215,0,0.2)',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 20,
-    gap: 10,
+    paddingHorizontal: scale(24),
+    paddingVertical: verticalScale(12),
+    borderRadius: moderateScale(20),
+    gap: scale(10),
   },
   successXPText: {
-    fontSize: 22,
+    fontSize: moderateScale(22),
     fontWeight: '900',
     color: '#FFD700',
   },

@@ -79,7 +79,7 @@ export default function PerfilScreen({ navigation }) {
   const getImcClassification = (imc) => { /* ... */ const value = parseFloat(imc); if (isNaN(value)) { return { text: 'N/A', color: COLORS.textSecondary }; } if (value < 18.5) { return { text: 'Bajo Peso', color: '#ffb74d' }; } if (value >= 18.5 && value <= 24.9) { return { text: 'Saludable', color: '#4CAF50' }; } if (value >= 25.0 && value <= 29.9) { return { text: 'Sobrepeso', color: '#ff9800' }; } if (value >= 30.0) { return { text: 'Obesidad', color: COLORS.error }; } return { text: 'Indefinido', color: COLORS.textSecondary }; };
 
   const showTermsAndConditions = () => {
-    const terms = `Términos y Condiciones de Leveling Fitness (v1.0.0)
+    const terms = `Términos y Condiciones de FITFLOW (v1.0.0)
 
 1. Aceptación de Términos
 Al usar esta aplicación, aceptas estos términos y condiciones. Si no estás de acuerdo, no uses la aplicación.
