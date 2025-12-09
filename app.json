@@ -5,6 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
+    "backgroundColor": "#000000",
     "splash": {
       "image": "./assets/splash.png",
       "backgroundColor": "#0f172a",
@@ -29,7 +30,13 @@
       },
       "package": "com.leveling.fitness",
       "permissions": [],
-      "allowBackup": false
+      "allowBackup": false,
+      "navigationBar": {
+        "visible": true,
+        "backgroundColor": "#000000",
+        "barStyle": "light-content"
+      },
+      "softwareKeyboardLayoutMode": "pan"
     },
     "web": {
       "favicon": "./assets/icon.png"
@@ -43,7 +50,8 @@
           "resizeMode": "contain",
           "backgroundColor": "#0f172a"
         }
-      ]
+      ],
+      "expo-audio"
     ],
     "extra": {
       "eas": {

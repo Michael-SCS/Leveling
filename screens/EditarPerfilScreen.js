@@ -269,7 +269,7 @@ export default function EditarPerfilScreen({ navigation, route }) {
           <View style={styles.quickOptionsRow}>
             <QuickOption value="Bajar de peso" selected={objetivo === 'Bajar de peso'} onPress={() => setObjetivo('Bajar de peso')} />
             <QuickOption value="Aumentar músculo" selected={objetivo === 'Aumentar músculo'} onPress={() => setObjetivo('Aumentar músculo')} />
-            <QuickOption value="Mantener estado físico" selected={objetivo === 'Mantener estado físico'} onPress={() => setObjetivo('Mantener estado físicor')} />
+            <QuickOption value="Mantener estado físico" selected={objetivo === 'Mantener estado físico'} onPress={() => setObjetivo('Mantener estado físico')} />
           </View>
           <TextInput
             style={[styles.input, { marginTop: 10 }]}
