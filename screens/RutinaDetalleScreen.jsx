@@ -57,6 +57,11 @@ export default function RutinaDetalleScreen({ route, navigation }) {
   const [countdownAnim] = useState(new Animated.Value(1))
   const [cardAnim] = useState(new Animated.Value(0))
   const [sound, setSound] = useState(null)
+  
+  // Toast favorito
+  const [mostrarToastFavorito, setMostrarToastFavorito] = useState(false)
+  const [mensajeToastFavorito, setMensajeToastFavorito] = useState('')
+  const [toastFavAnim] = useState(new Animated.Value(0))
 
   useEffect(() => {
     loadRutinaDetalle()
@@ -88,7 +93,6 @@ export default function RutinaDetalleScreen({ route, navigation }) {
         setTimerDescanso(prev => {
           if (prev <= 1) {
             setMostrarTimer(false)
-            reproducirSonido() // 🔊 Reproducir sonido al terminar
             return 0
           }
           return prev - 1
@@ -176,7 +180,7 @@ export default function RutinaDetalleScreen({ route, navigation }) {
 
         if (error) throw error
         setEsFavorito(false)
-        Alert.alert('✓', 'Eliminado de favoritos')
+        mostrarToastFavoritoAnimado('Eliminado de favoritos')
       } else {
         const { error } = await supabase
           .from('rutinas_favoritas')
@@ -187,12 +191,34 @@ export default function RutinaDetalleScreen({ route, navigation }) {
 
         if (error) throw error
         setEsFavorito(true)
-        Alert.alert('❤️', 'Agregado a favoritos')
+        mostrarToastFavoritoAnimado('❤️ Agregado a favoritos')
       }
     } catch (error) {
       console.log('Error toggle favorito:', error)
       Alert.alert('Error', 'No se pudo actualizar favoritos')
     }
+  }
+
+  const mostrarToastFavoritoAnimado = (mensaje) => {
+    setMensajeToastFavorito(mensaje)
+    setMostrarToastFavorito(true)
+    
+    Animated.sequence([
+      Animated.spring(toastFavAnim, {
+        toValue: 1,
+        friction: 8,
+        tension: 40,
+        useNativeDriver: true
+      }),
+      Animated.delay(2000),
+      Animated.timing(toastFavAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true
+      })
+    ]).start(() => {
+      setMostrarToastFavorito(false)
+    })
   }
 
   const loadRutinaDetalle = async () => {
@@ -264,12 +290,12 @@ export default function RutinaDetalleScreen({ route, navigation }) {
     setEjercicioActivoIndex(0)
   }
 
-  const handleDescanso = () => {
+  const handleSiguienteEjercicio = () => {
     const ejercicioActual = ejercicios[ejercicioActivoIndex]
     const seriesActuales = seriesRestantes[ejercicioActual.id]
-
+    
+    // Si quedan series, reducir contador y tomar descanso automático
     if (seriesActuales > 1) {
-      // Reducir series y tomar descanso
       setSeriesRestantes(prev => ({
         ...prev,
         [ejercicioActual.id]: prev[ejercicioActual.id] - 1
@@ -277,11 +303,8 @@ export default function RutinaDetalleScreen({ route, navigation }) {
       
       setTimerDescanso(ejercicioActual.tiempo_descanso_segundos || 60)
       setMostrarTimer(true)
+      return
     }
-  }
-
-  const handleSiguienteEjercicio = () => {
-    const ejercicioActual = ejercicios[ejercicioActivoIndex]
     
     // Marcar como completado
     setEjerciciosCompletados(prev => new Set([...prev, ejercicioActual.id]))
@@ -439,8 +462,7 @@ export default function RutinaDetalleScreen({ route, navigation }) {
           Animated.timing(scaleAnim, { toValue: 0.8, duration: 300, useNativeDriver: true }),
         ]).start(() => {
           setMostrarSuccess(false)
-          // Navegar hacia atrás hasta la pantalla de rutinas
-          navigation.navigate('Rutinas') // O el nombre de tu screen de rutinas
+          navigation.navigate('Rutinas')
         })
       }, 3000)
 
@@ -763,34 +785,24 @@ export default function RutinaDetalleScreen({ route, navigation }) {
 
                 {/* Botones */}
                 <View style={styles.activoBotones}>
-                  {seriesActuales > 1 ? (
-                    <TouchableOpacity
-                      style={styles.activoBotonDescanso}
-                      onPress={handleDescanso}
+                  <TouchableOpacity
+                    style={styles.activoBotonSiguiente}
+                    onPress={handleSiguienteEjercicio}
+                  >
+                    <LinearGradient
+                      colors={['#4CAF50', '#45a049']}
+                      style={styles.activoBotonGradient}
                     >
-                      <MaterialIcons name="schedule" size={moderateScale(24)} color="#FFFFFF" />
                       <Text style={styles.activoBotonText}>
-                        Tomar Descanso ({ejercicioActual.tiempo_descanso_segundos || 60}s)
-                      </Text>
-                    </TouchableOpacity>
-                  ) : (
-                    <TouchableOpacity
-                      style={styles.activoBotonSiguiente}
-                      onPress={handleSiguienteEjercicio}
-                    >
-                      <LinearGradient
-                        colors={['#4CAF50', '#45a049']}
-                        style={styles.activoBotonGradient}
-                      >
-                        <Text style={styles.activoBotonText}>
-                          {ejercicioActivoIndex < ejercicios.length - 1 
+                        {seriesActuales > 1 
+                          ? `Siguiente Serie (${seriesActuales - 1} restante${seriesActuales - 1 !== 1 ? 's' : ''})`
+                          : ejercicioActivoIndex < ejercicios.length - 1 
                             ? 'Siguiente Ejercicio' 
                             : 'Completar Último Ejercicio'}
-                        </Text>
-                        <MaterialIcons name="arrow-forward" size={moderateScale(24)} color="#FFFFFF" />
-                      </LinearGradient>
-                    </TouchableOpacity>
-                  )}
+                      </Text>
+                      <MaterialIcons name="arrow-forward" size={moderateScale(24)} color="#FFFFFF" />
+                    </LinearGradient>
+                  </TouchableOpacity>
                 </View>
               </ScrollView>
             </Animated.View>
@@ -917,6 +929,12 @@ export default function RutinaDetalleScreen({ route, navigation }) {
                 <Text style={styles.ejercicioSeries}>
                   {item.series} series × {item.repeticiones} reps
                 </Text>
+
+                {item.ejercicios?.instrucciones && (
+                  <Text style={styles.ejercicioDescripcion}>
+                    {item.ejercicios.instrucciones}
+                  </Text>
+                )}
 
                 {item.ejercicios?.gif_url && (
                   <Image
@@ -1126,6 +1144,36 @@ export default function RutinaDetalleScreen({ route, navigation }) {
           </LinearGradient>
         </Animated.View>
       )}
+
+      {/* TOAST FAVORITO */}
+      {mostrarToastFavorito && (
+        <Animated.View
+          style={[
+            styles.toastFavorito,
+            {
+              opacity: toastFavAnim,
+              transform: [{ 
+                translateY: toastFavAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [-100, 0]
+                })
+              }]
+            }
+          ]}
+        >
+          <LinearGradient
+            colors={esFavorito ? ['#FF6B6B', '#FF8787'] : ['#444', '#666']}
+            style={styles.toastFavoritoGradient}
+          >
+            <MaterialIcons 
+              name={esFavorito ? "favorite" : "favorite-border"} 
+              size={moderateScale(24)} 
+              color="#FFFFFF" 
+            />
+            <Text style={styles.toastFavoritoText}>{mensajeToastFavorito}</Text>
+          </LinearGradient>
+        </Animated.View>
+      )}
     </View>
   )
 }
@@ -1300,20 +1348,6 @@ const styles = StyleSheet.create({
   activoBotones: {
     padding: scale(20),
     paddingBottom: verticalScale(30),
-  },
-  activoBotonDescanso: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: scale(12),
-    backgroundColor: COLORS.primary,
-    paddingVertical: verticalScale(18),
-    borderRadius: moderateScale(16),
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    elevation: 8,
   },
   activoBotonSiguiente: {
     borderRadius: moderateScale(16),
@@ -1510,6 +1544,13 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(14),
     fontWeight: '600',
     marginBottom: verticalScale(14),
+  },
+  ejercicioDescripcion: {
+    color: '#CCCCCC',
+    fontSize: moderateScale(13),
+    lineHeight: moderateScale(20),
+    marginBottom: verticalScale(12),
+    opacity: 0.9,
   },
   ejercicioGif: {
     width: '100%',
@@ -1780,5 +1821,34 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(22),
     fontWeight: '900',
     color: '#FFD700',
+  },
+
+  // TOAST FAVORITO
+  toastFavorito: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? verticalScale(60) : verticalScale(50),
+    left: scale(20),
+    right: scale(20),
+    zIndex: 9999,
+    elevation: 10,
+  },
+  toastFavoritoGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: scale(12),
+    paddingVertical: verticalScale(16),
+    paddingHorizontal: scale(24),
+    borderRadius: moderateScale(16),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  toastFavoritoText: {
+    color: '#FFFFFF',
+    fontSize: moderateScale(16),
+    fontWeight: '700',
   },
 });

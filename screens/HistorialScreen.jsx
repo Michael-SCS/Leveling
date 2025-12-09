@@ -1,4 +1,5 @@
 import { MaterialIcons } from '@expo/vector-icons'
+import { Image } from 'expo-image'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useEffect, useState } from 'react'
 import {
@@ -275,6 +276,21 @@ const formatearHora = (hora) => {
                   onPress={() => toggleExpand(entrenamiento.id)}
                   activeOpacity={0.8}
                 >
+                  {/* Imagen de la Rutina */}
+                  {entrenamiento.rutinas_predefinidas?.imagen_url && (
+                    <View style={styles.entrenamientoImageContainer}>
+                      <Image
+                        source={{ uri: entrenamiento.rutinas_predefinidas.imagen_url }}
+                        style={styles.entrenamientoImage}
+                        contentFit="cover"
+                      />
+                      <LinearGradient
+                        colors={['transparent', 'rgba(0,0,0,0.7)']}
+                        style={styles.imageGradient}
+                      />
+                    </View>
+                  )}
+
                   <View style={styles.entrenamientoHeader}>
                     <View style={styles.fechaContainer}>
                       <View style={styles.fechaBadge}>
@@ -547,7 +563,6 @@ const styles = StyleSheet.create({
   entrenamientoCard: {
     backgroundColor: COLORS.card,
     borderRadius: 20,
-    padding: 20,
     marginBottom: 12,
     borderWidth: 1,
     borderColor: COLORS.border + '30',
@@ -556,16 +571,35 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 3,
+    overflow: 'hidden',
   },
   entrenamientoCardExpanded: {
     borderColor: COLORS.primary + '40',
     shadowOpacity: 0.12,
+  },
+  entrenamientoImageContainer: {
+    width: '100%',
+    height: 160,
+    position: 'relative',
+  },
+  entrenamientoImage: {
+    width: '100%',
+    height: '100%',
+  },
+  imageGradient: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 80,
   },
   entrenamientoHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
+    paddingHorizontal: 20,
+    paddingTop: 20,
   },
   fechaContainer: {
     flex: 1,
@@ -634,11 +668,14 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     marginBottom: 14,
     letterSpacing: -0.3,
+    paddingHorizontal: 20,
   },
   entrenamientoStats: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
   },
   nivelBadge: {
     backgroundColor: COLORS.primary,
@@ -670,6 +707,8 @@ const styles = StyleSheet.create({
   },
   detallesContainer: {
     marginTop: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
   },
   divider: {
     height: 1,
