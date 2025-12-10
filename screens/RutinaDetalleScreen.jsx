@@ -17,6 +17,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../constants/colors';
 import { supabase } from '../lib/supabase';
 
@@ -27,6 +28,7 @@ const verticalScale = (size) => (SCREEN_HEIGHT / 812) * size;
 const moderateScale = (size, factor = 0.5) => size + (scale(size) - size) * factor;
 
 export default function RutinaDetalleScreen({ route, navigation }) {
+  const insets = useSafeAreaInsets()
   const { rutinaId } = route.params
   const [loading, setLoading] = useState(true)
   const [rutina, setRutina] = useState(null)
@@ -271,27 +273,6 @@ export default function RutinaDetalleScreen({ route, navigation }) {
     }
   }
 
-  const resetearEntrenamiento = () => {
-    setEntrenandoActivo(false)
-    setEjercicioActivoIndex(null)
-    setEjerciciosCompletados(new Set())
-    setTiempoInicio(null)
-    setTiempoTranscurrido(0)
-    setTimerDescanso(0)
-    setMostrarTimer(false)
-    setMostrarFeedback(false)
-    setCalificacion(0)
-    setComentario('')
-    setDatosEntrenamiento(null)
-    
-    // Reiniciar series
-    const seriesInit = {}
-    ejercicios.forEach(ej => {
-      seriesInit[ej.id] = ej.series
-    })
-    setSeriesRestantes(seriesInit)
-  }
-
   const handleIniciarEntrenamiento = () => {
     setMostrarCuentaRegresiva(true)
     setCuentaRegresiva(3)
@@ -340,7 +321,7 @@ export default function RutinaDetalleScreen({ route, navigation }) {
         // Ir al siguiente
         setEjercicioActivoIndex(ejercicioActivoIndex + 1)
       } else {
-        // Finalizar todos los ejercicios - MANTENER SCROLL ACTIVO
+        // Finalizar todos los ejercicios
         setEjercicioActivoIndex(null)
       }
     })
@@ -356,7 +337,7 @@ export default function RutinaDetalleScreen({ route, navigation }) {
           style: 'cancel'
         },
         {
-          text: 'Finalizar',
+          text: 'Finalizar entrenamiento',
           style: 'destructive',
           onPress: () => {
             Animated.timing(cardAnim, {
@@ -367,7 +348,8 @@ export default function RutinaDetalleScreen({ route, navigation }) {
               setEjercicioActivoIndex(null)
               // Si no hay ejercicios completados, simplemente volver
               if (ejerciciosCompletados.size === 0) {
-                resetearEntrenamiento()
+                setEntrenandoActivo(false)
+                setTiempoInicio(null)
                 navigation.goBack()
               } else {
                 handleFinalizarEntrenamiento()
@@ -465,7 +447,10 @@ export default function RutinaDetalleScreen({ route, navigation }) {
       }
       
       setMostrarFeedback(false)
-      // No resetear aquí, se hará después del modal de éxito
+      setEntrenandoActivo(false)
+      setTiempoInicio(null)
+      setCalificacion(0)
+      setComentario('')
 
       setMostrarSuccess(true)
       Animated.parallel([
@@ -479,8 +464,7 @@ export default function RutinaDetalleScreen({ route, navigation }) {
           Animated.timing(scaleAnim, { toValue: 0.8, duration: 300, useNativeDriver: true }),
         ]).start(() => {
           setMostrarSuccess(false)
-          resetearEntrenamiento()
-          navigation.goBack()
+          navigation.navigate('Rutinas')
         })
       }, 3000)
 
@@ -739,11 +723,7 @@ export default function RutinaDetalleScreen({ route, navigation }) {
                 }]
               }
             ]}>
-              <ScrollView 
-                showsVerticalScrollIndicator={false}
-                bounces={true}
-                contentContainerStyle={{ paddingBottom: verticalScale(20) }}
-              >
+              <ScrollView showsVerticalScrollIndicator={false}>
                 {/* Header con timer y botón cerrar */}
                 <View style={styles.activoHeader}>
                   <View style={styles.activoTimerBadge}>
@@ -781,10 +761,10 @@ export default function RutinaDetalleScreen({ route, navigation }) {
                   {ejercicioActual.ejercicios?.nombre}
                 </Text>
 
-                {/* Series restantes - CORREGIDO: Texto más pequeño */}
+                {/* Series restantes */}
                 <View style={styles.activoSeriesContainer}>
-                  <MaterialIcons name="repeat" size={moderateScale(24)} color={COLORS.primary} />
-                  <Text style={styles.activoSeriesText} numberOfLines={2} adjustsFontSizeToFit>
+                  <MaterialIcons name="repeat" size={moderateScale(28)} color={COLORS.primary} />
+                  <Text style={styles.activoSeriesText}>
                     {seriesActuales} {seriesActuales === 1 ? 'serie' : 'series'} restante{seriesActuales !== 1 ? 's' : ''}
                   </Text>
                 </View>
@@ -805,7 +785,7 @@ export default function RutinaDetalleScreen({ route, navigation }) {
                   </View>
                 )}
 
-                {/* Botones - CORREGIDO: Texto más pequeño */}
+                {/* Botones */}
                 <View style={styles.activoBotones}>
                   <TouchableOpacity
                     style={styles.activoBotonSiguiente}
@@ -815,14 +795,14 @@ export default function RutinaDetalleScreen({ route, navigation }) {
                       colors={['#4CAF50', '#45a049']}
                       style={styles.activoBotonGradient}
                     >
-                      <Text style={styles.activoBotonText} numberOfLines={1} adjustsFontSizeToFit>
+                      <Text style={styles.activoBotonText}>
                         {seriesActuales > 1 
-                          ? `Siguiente Serie (${seriesActuales - 1})`
+                          ? `Siguiente Serie (${seriesActuales - 1} restante${seriesActuales - 1 !== 1 ? 's' : ''})`
                           : ejercicioActivoIndex < ejercicios.length - 1 
                             ? 'Siguiente Ejercicio' 
-                            : 'Completar Ejercicio'}
+                            : 'Completar Último Ejercicio'}
                       </Text>
-                      <MaterialIcons name="arrow-forward" size={moderateScale(20)} color="#FFFFFF" />
+                      <MaterialIcons name="arrow-forward" size={moderateScale(24)} color="#FFFFFF" />
                     </LinearGradient>
                   </TouchableOpacity>
                 </View>
@@ -929,8 +909,7 @@ export default function RutinaDetalleScreen({ route, navigation }) {
           </Text>
 
           {ejercicios.map((item, index) => {
-            // CORRECCIÓN: Marcar como completado si está en el Set O si todos están completados
-            const completado = ejerciciosCompletados.has(item.id) || todosCompletados
+            const completado = ejerciciosCompletados.has(item.id)
 
             return (
               <View
@@ -941,9 +920,7 @@ export default function RutinaDetalleScreen({ route, navigation }) {
                 ]}
               >
                 <View style={styles.ejercicioHeader}>
-                  <View style={styles.ejercicioNumeroContainer}>
-                    <Text style={styles.ejercicioNumero}>{index + 1}</Text>
-                  </View>
+                  <Text style={styles.ejercicioNumero}>{index + 1}</Text>
                   <Text style={styles.ejercicioNombre}>{item.ejercicios?.nombre}</Text>
 
                   {completado && (
@@ -975,7 +952,7 @@ export default function RutinaDetalleScreen({ route, navigation }) {
           })}
         </View>
 
-        {/* BOTÓN PRINCIPAL - CORREGIDO: Más alto */}
+        {/* BOTÓN PRINCIPAL */}
         <View style={styles.bottomButtonContainer}>
           {!entrenandoActivo ? (
             <TouchableOpacity style={styles.startButton} onPress={handleIniciarEntrenamiento}>
@@ -1318,26 +1295,21 @@ const styles = StyleSheet.create({
     marginTop: verticalScale(20),
     lineHeight: moderateScale(32),
   },
-  // CORREGIDO: Series container más compacto
   activoSeriesContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: scale(10),
+    gap: scale(12),
     marginTop: verticalScale(20),
     backgroundColor: 'rgba(94, 96, 206, 0.2)',
     marginHorizontal: scale(20),
-    paddingVertical: verticalScale(14),
-    paddingHorizontal: scale(12),
+    paddingVertical: verticalScale(16),
     borderRadius: moderateScale(16),
   },
-  // CORREGIDO: Texto más pequeño
   activoSeriesText: {
-    fontSize: moderateScale(16),
+    fontSize: moderateScale(20),
     fontWeight: '800',
     color: '#FFFFFF',
-    flexShrink: 1,
-    textAlign: 'center',
   },
   activoRepsContainer: {
     marginTop: verticalScale(16),
@@ -1392,16 +1364,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: scale(10),
+    gap: scale(12),
     paddingVertical: verticalScale(18),
-    paddingHorizontal: scale(16),
   },
-  // CORREGIDO: Texto más pequeño
   activoBotonText: {
     color: '#FFFFFF',
-    fontSize: moderateScale(15),
+    fontSize: moderateScale(17),
     fontWeight: '900',
-    flexShrink: 1,
   },
 
   // HEADER
@@ -1555,20 +1524,16 @@ const styles = StyleSheet.create({
     marginBottom: verticalScale(10),
     gap: scale(12),
   },
-  // CORREGIDO: Contenedor para centrar el número
-  ejercicioNumeroContainer: {
+  ejercicioNumero: {
     width: moderateScale(32),
     height: moderateScale(32),
     borderRadius: moderateScale(16),
     backgroundColor: COLORS.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  ejercicioNumero: {
     color: '#FFFFFF',
     fontSize: moderateScale(16),
     fontWeight: '900',
     textAlign: 'center',
+    lineHeight: moderateScale(32),
   },
   ejercicioNombre: {
     flex: 1,
@@ -1596,10 +1561,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
   },
 
-  // BOTÓN PRINCIPAL - CORREGIDO: Más padding bottom
+  // BOTÓN PRINCIPAL
   bottomButtonContainer: {
     padding: scale(24),
-    paddingBottom: verticalScale(100),
+    paddingBottom: verticalScale(40),
   },
   startButton: {
     borderRadius: moderateScale(16),
@@ -1708,7 +1673,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: moderateScale(30),
     borderTopRightRadius: moderateScale(30),
     padding: scale(28),
-    paddingBottom: verticalScale(50),
+    paddingBottom: verticalScale(40),
   },
   feedbackHeader: {
     alignItems: 'center',

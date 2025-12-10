@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import {
   ActivityIndicator,
   Dimensions,
+  Modal,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -30,15 +31,14 @@ const formatTotalMinutes = (totalMinutos) => {
 export default function HistorialScreen({ navigation }) {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
-  const [entrenamientos, setEntrenamientos] = useState([])
-  const [expandido, setExpandido] = useState(null)
+  const [entrenamientosAgrupados, setEntrenamientosAgrupados] = useState([])
+  const [modalVisible, setModalVisible] = useState(false)
+  const [rutinaSeleccionada, setRutinaSeleccionada] = useState(null)
   const [estadisticas, setEstadisticas] = useState({
     totalEntrenamientos: 0,
     totalMinutos: 0,
     totalCalorias: 0,
-    totalXP: 0,
     estaSemana: 0,
-    promedioDiario: 0,
   })
 
   useEffect(() => {
@@ -52,27 +52,27 @@ export default function HistorialScreen({ navigation }) {
       const { data: entrenamientosData, error } = await supabase
         .from('entrenamientos_completados')
         .select(`
-  id,
-  fecha,
-  hora,
-  duracion_minutos,
-  calorias_quemadas,
-  xp_ganada,
-  ejercicios_completados,
-  rutina_id,
-  rutinas_predefinidas (
-    nombre,
-    imagen_url,
-    nivel
-  )
-`)
-
+          id,
+          fecha,
+          hora,
+          duracion_minutos,
+          calorias_quemadas,
+          xp_ganada,
+          ejercicios_completados,
+          rutina_id,
+          rutinas_predefinidas (
+            nombre,
+            imagen_url,
+            nivel
+          )
+        `)
         .eq('user_id', user.id)
         .order('fecha', { ascending: false })
-        .limit(50)
+        .order('hora', { ascending: false })
 
       if (error) throw error
 
+      // Obtener nombres de ejercicios
       if (entrenamientosData && entrenamientosData.length > 0) {
         const todosLosIds = new Set()
         entrenamientosData.forEach(entrenamiento => {
@@ -101,12 +101,41 @@ export default function HistorialScreen({ navigation }) {
         }
       }
 
-      setEntrenamientos(entrenamientosData || [])
+      // Agrupar por rutina_id
+      const agrupados = {}
+      entrenamientosData?.forEach(entrenamiento => {
+        const rutinaId = entrenamiento.rutina_id
+        if (!agrupados[rutinaId]) {
+          agrupados[rutinaId] = {
+            rutina_id: rutinaId,
+            nombre: entrenamiento.rutinas_predefinidas?.nombre || 'Rutina Desconocida',
+            imagen_url: entrenamiento.rutinas_predefinidas?.imagen_url,
+            nivel: entrenamiento.rutinas_predefinidas?.nivel,
+            veces_realizada: 0,
+            ultima_fecha: entrenamiento.fecha,
+            ultima_hora: entrenamiento.hora,
+            total_ejercicios: 0,
+            sesiones: []
+          }
+        }
+        agrupados[rutinaId].veces_realizada += 1
+        agrupados[rutinaId].total_ejercicios += entrenamiento.ejercicios_completados?.length || 0
+        agrupados[rutinaId].sesiones.push(entrenamiento)
+      })
 
+      // Convertir a array y ordenar por fecha más reciente
+      const arrayAgrupado = Object.values(agrupados).sort((a, b) => {
+        const fechaA = new Date(a.ultima_fecha + ' ' + a.ultima_hora)
+        const fechaB = new Date(b.ultima_fecha + ' ' + b.ultima_hora)
+        return fechaB - fechaA
+      })
+
+      setEntrenamientosAgrupados(arrayAgrupado)
+
+      // Calcular estadísticas
       const total = entrenamientosData?.length || 0
       const minutos = entrenamientosData?.reduce((sum, e) => sum + (e.duracion_minutos || 0), 0) || 0
       const calorias = entrenamientosData?.reduce((sum, e) => sum + (e.calorias_quemadas || 0), 0) || 0
-      const xp = entrenamientosData?.reduce((sum, e) => sum + (e.xp_ganada || 0), 0) || 0
 
       const hoy = new Date()
       const dayOfWeek = hoy.getDay()
@@ -118,15 +147,11 @@ export default function HistorialScreen({ navigation }) {
         new Date(e.fecha) >= inicioSemana
       ).length || 0
 
-      const promedioDiario = total > 0 ? Math.round(minutos / total) : 0
-
       setEstadisticas({
         totalEntrenamientos: total,
         totalMinutos: minutos,
         totalCalorias: calorias,
-        totalXP: xp,
         estaSemana: semana,
-        promedioDiario,
       })
 
     } catch (error) {
@@ -141,28 +166,23 @@ export default function HistorialScreen({ navigation }) {
     setRefreshing(true)
     loadHistorial()
   }
-const formatearFecha = (fecha) => {
-  if (!fecha) return "";
 
-  // Supabase devuelve fecha tipo 'YYYY-MM-DD'
-  const [year, month, day] = fecha.split('-');
+  const formatearFecha = (fecha) => {
+    if (!fecha) return ""
+    const [year, month, day] = fecha.split('-')
+    const meses = ["ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "SEP", "OCT", "NOV", "DIC"]
+    const mesAbreviado = meses[Number(month) - 1]
+    return `${day} ${mesAbreviado}`
+  }
 
-  // Convertir el mes a abreviatura en español
-  const meses = ["ENE","FEB","MAR","ABR","MAY","JUN","JUL","AGO","SEP","OCT","NOV","DIC"];
-  const mesAbreviado = meses[Number(month)-1];
+  const formatearHora = (hora) => {
+    if (!hora) return ""
+    return hora.substring(0, 5)
+  }
 
-  return `${day} ${mesAbreviado} ${year}`;
-};
-
-const formatearHora = (hora) => {
-  if (!hora) return "";
-
-  // Supabase devuelve hora tipo 'HH:MM:SS', queremos solo HH:MM
-  return hora.substring(0,5); 
-};
-
-  const toggleExpand = (id) => {
-    setExpandido(expandido === id ? null : id)
+  const abrirDetalles = (rutina) => {
+    setRutinaSeleccionada(rutina)
+    setModalVisible(true)
   }
 
   if (loading) {
@@ -186,196 +206,152 @@ const formatearHora = (hora) => {
       >
         {/* Header */}
         <View style={styles.headerContainer}>
-          <View style={styles.headerLeft}>
-            <Text style={styles.title}>Tu Historial</Text>
-            <Text style={styles.subtitle}>Cada sesión es un paso más cerca de tu objetivo 🎯</Text>
+          <Text style={styles.title}>Tu Historial</Text>
+          <Text style={styles.subtitle}>Progreso constante 🔥</Text>
+        </View>
+
+        {/* Estadísticas Compactas */}
+        <View style={styles.statsContainer}>
+          <View style={styles.statItem}>
+            <MaterialIcons name="fitness-center" size={20} color={COLORS.primary} />
+            <Text style={styles.statValue}>{estadisticas.totalEntrenamientos}</Text>
+            <Text style={styles.statLabel}>Sesiones</Text>
+          </View>
+          <View style={styles.statItem}>
+            <MaterialIcons name="schedule" size={20} color="#FF6B6B" />
+            <Text style={styles.statValue}>{formatTotalMinutes(estadisticas.totalMinutos)}</Text>
+            <Text style={styles.statLabel}>Tiempo</Text>
+          </View>
+          <View style={styles.statItem}>
+            <MaterialIcons name="local-fire-department" size={20} color="#FFD93D" />
+            <Text style={styles.statValue}>{estadisticas.totalCalorias}</Text>
+            <Text style={styles.statLabel}>Kcal</Text>
           </View>
         </View>
 
-        {/* Grid de Estadísticas Principales - Estilo Card Horizontal */}
-        <View style={styles.statsMainContainer}>
-
-          {/* Stats Grid 2x2 */}
-          <View style={styles.statsGrid}>
-            <View style={styles.statCard}>
-              <LinearGradient colors={[COLORS.primary + '15', COLORS.primary + '08']} style={styles.statGradient}>
-                <MaterialIcons name="fitness-center" size={28} color={COLORS.primary} />
-                <Text style={styles.statValue}>{estadisticas.totalEntrenamientos}</Text>
-                <Text style={styles.statLabel}>Sesiones</Text>
-              </LinearGradient>
-            </View>
-
-            <View style={styles.statCard}>
-              <LinearGradient colors={['#4ECDC415', '#4ECDC408']} style={styles.statGradient}>
-                <MaterialIcons name="event-available" size={28} color="#4ECDC4" />
-                <Text style={styles.statValue}>{estadisticas.estaSemana}</Text>
-                <Text style={styles.statLabel}>Esta Semana</Text>
-              </LinearGradient>
-            </View>
-
-            <View style={styles.statCard}>
-              <LinearGradient colors={['#FF6B6B15', '#FF6B6B08']} style={styles.statGradient}>
-                <MaterialIcons name="schedule" size={28} color="#FF6B6B" />
-                <Text style={styles.statValue}>{formatTotalMinutes(estadisticas.totalMinutos)}</Text>
-                <Text style={styles.statLabel}>Tiempo Total</Text>
-              </LinearGradient>
-            </View>
-
-            <View style={styles.statCard}>
-              <LinearGradient colors={['#FFD93D15', '#FFD93D08']} style={styles.statGradient}>
-                <MaterialIcons name="local-fire-department" size={28} color="#FFD93D" />
-                <Text style={styles.statValue}>{estadisticas.totalCalorias.toLocaleString()}</Text>
-                <Text style={styles.statLabel}>Kcal Quemadas</Text>
-              </LinearGradient>
-            </View>
-          </View>
-
-          {/* Promedio Diario */}
-          {estadisticas.totalEntrenamientos > 0 && (
-            <View style={styles.promedioCard}>
-              <MaterialIcons name="insights" size={20} color={COLORS.primary} />
-              <Text style={styles.promedioText}>
-                Promedio por sesión: <Text style={styles.promedioValue}>{estadisticas.promedioDiario} min</Text>
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* Lista de Entrenamientos */}
+        {/* Lista de Rutinas Agrupadas */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Todas tus Sesiones</Text>
+          <Text style={styles.sectionTitle}>Mis Rutinas</Text>
 
-          {entrenamientos.length === 0 ? (
+          {entrenamientosAgrupados.length === 0 ? (
             <View style={styles.emptyCard}>
-              <View style={styles.emptyIconCircle}>
-                <MaterialIcons name="event-busy" size={48} color={COLORS.textSecondary} />
-              </View>
+              <MaterialIcons name="event-busy" size={48} color={COLORS.textSecondary} />
               <Text style={styles.emptyTitle}>Sin entrenamientos aún</Text>
-              <Text style={styles.emptyText}>
-                Completa tu primer entrenamiento para verlo aquí
-              </Text>
+              <Text style={styles.emptyText}>Completa tu primera rutina</Text>
               <TouchableOpacity
                 style={styles.emptyButton}
                 onPress={() => navigation.navigate('Rutinas')}
               >
                 <Text style={styles.emptyButtonText}>Explorar Rutinas</Text>
-                <MaterialIcons name="arrow-forward" size={16} color={COLORS.white} />
               </TouchableOpacity>
             </View>
           ) : (
-            entrenamientos.map((entrenamiento) => {
-              const isExpanded = expandido === entrenamiento.id
-              const numEjercicios = Array.isArray(entrenamiento.ejercicios_completados)
-                ? entrenamiento.ejercicios_completados.length
-                : 0
-
-              return (
-                <TouchableOpacity
-                  key={entrenamiento.id}
-                  style={[styles.entrenamientoCard, isExpanded && styles.entrenamientoCardExpanded]}
-                  onPress={() => toggleExpand(entrenamiento.id)}
-                  activeOpacity={0.8}
-                >
-                  {/* Imagen de la Rutina */}
-                  {entrenamiento.rutinas_predefinidas?.imagen_url && (
-                    <View style={styles.entrenamientoImageContainer}>
-                      <Image
-                        source={{ uri: entrenamiento.rutinas_predefinidas.imagen_url }}
-                        style={styles.entrenamientoImage}
-                        contentFit="cover"
-                      />
-                      <LinearGradient
-                        colors={['transparent', 'rgba(0,0,0,0.7)']}
-                        style={styles.imageGradient}
-                      />
-                    </View>
-                  )}
-
-                  <View style={styles.entrenamientoHeader}>
-                    <View style={styles.fechaContainer}>
-                      <View style={styles.fechaBadge}>
-                        <MaterialIcons name="calendar-today" size={12} color={COLORS.primary} />
-                        <Text style={styles.fechaDia}>{formatearFecha(entrenamiento.fecha)}</Text>
-                      </View>
-                      <Text style={styles.fechaHora}>{formatearHora(entrenamiento.hora)}</Text>
-                    </View>
-
-                    <View style={styles.headerRight}>
-                      {entrenamiento.xp_ganada > 0 && (
-                        <View style={styles.xpBadgeItem}>
-                          <MaterialIcons name="star" size={30} color="#ffffffff" />
-                          <Text style={styles.xpBadgeText}>+{entrenamiento.xp_ganada}</Text>
-                        </View>
-                      )}
-                      <View style={styles.expandButton}>
-                        <MaterialIcons
-                          name={isExpanded ? 'expand-less' : 'expand-more'}
-                          size={24}
-                          color={COLORS.primary}
-                        />
-                      </View>
+            entrenamientosAgrupados.map((rutina) => (
+              <TouchableOpacity
+                key={rutina.rutina_id}
+                style={styles.rutinaCard}
+                onPress={() => abrirDetalles(rutina)}
+                activeOpacity={0.7}
+              >
+                {rutina.imagen_url && (
+                  <Image
+                    source={{ uri: rutina.imagen_url }}
+                    style={styles.rutinaImage}
+                    contentFit="cover"
+                  />
+                )}
+                <View style={styles.rutinaInfo}>
+                  <View style={styles.rutinaHeader}>
+                    <Text style={styles.rutinaNombre} numberOfLines={1}>{rutina.nombre}</Text>
+                    <View style={styles.contadorBadge}>
+                      <Text style={styles.contadorTexto}>×{rutina.veces_realizada}</Text>
                     </View>
                   </View>
-
-                  <Text style={styles.entrenamientoNombre}>
-                    {entrenamiento.rutinas_predefinidas?.nombre || 'Rutina Desconocida'}
-                  </Text>
-
-                  <View style={styles.entrenamientoStats}>
-                    {entrenamiento.rutinas_predefinidas?.nivel && (
-                      <View style={styles.nivelBadge}>
-                        <Text style={styles.nivelText}>{entrenamiento.rutinas_predefinidas.nivel}</Text>
-                      </View>
-                    )}
-                    <View style={styles.statBadge}>
-                      <MaterialIcons name="schedule" size={14} color={COLORS.textSecondary} />
-                      <Text style={styles.statBadgeText}>{entrenamiento.duracion_minutos} min</Text>
+                  <View style={styles.rutinaFooter}>
+                    <View style={styles.rutinaDetail}>
+                      <MaterialIcons name="calendar-today" size={12} color={COLORS.textSecondary} />
+                      <Text style={styles.rutinaDetailText}>{formatearFecha(rutina.ultima_fecha)}</Text>
                     </View>
-
-                    <View style={styles.statBadge}>
-                      <MaterialIcons name="local-fire-department" size={14} color="#ff0000ff" />
-                      <Text style={styles.statBadgeText}>{entrenamiento.calorias_quemadas || 0} kcal</Text>
+                    <View style={styles.rutinaDetail}>
+                      <MaterialIcons name="fitness-center" size={12} color={COLORS.textSecondary} />
+                      <Text style={styles.rutinaDetailText}>{rutina.total_ejercicios} ejercicios</Text>
                     </View>
-
-                    {numEjercicios > 0 && (
-                      <View style={styles.statBadge}>
-                        <MaterialIcons name="fitness-center" size={14} color={COLORS.primary} />
-                        <Text style={styles.statBadgeText}>{numEjercicios} ejercicios</Text>
-                      </View>
-                    )}
+                    <MaterialIcons name="chevron-right" size={20} color={COLORS.primary} />
                   </View>
-
-                  {isExpanded && (
-                    <View style={styles.detallesContainer}>
-                      <View style={styles.divider} />
-                      {numEjercicios > 0 && entrenamiento.ejerciciosConNombres && (
-                        <>
-                          <Text style={styles.ejerciciosTitle}>
-                            Ejercicios Completados
-                          </Text>
-                          <View style={styles.ejerciciosList}>
-                            {entrenamiento.ejerciciosConNombres.map((ejercicio, index) => (
-                              <View key={ejercicio.id} style={styles.ejercicioItem}>
-                                <View style={styles.ejercicioNumber}>
-                                  <Text style={styles.ejercicioNumberText}>{index + 1}</Text>
-                                </View>
-                                <Text style={styles.ejercicioNombre}>{ejercicio.nombre}</Text>
-                                <MaterialIcons name="check-circle" size={20} color={COLORS.success} />
-                              </View>
-                            ))}
-                          </View>
-                        </>
-                      )}
-                    </View>
-                  )}
-                </TouchableOpacity>
-              )
-            })
+                </View>
+              </TouchableOpacity>
+            ))
           )}
         </View>
-
-        <View style={styles.bottomSpacer} />
       </ScrollView>
+
+      {/* Modal de Detalles */}
+      <Modal
+        visible={modalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalHeaderLeft}>
+                <Text style={styles.modalTitle}>{rutinaSeleccionada?.nombre}</Text>
+                <Text style={styles.modalSubtitle}>
+                  {rutinaSeleccionada?.veces_realizada} {rutinaSeleccionada?.veces_realizada === 1 ? 'sesión' : 'sesiones'} completadas
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeButton}>
+                <MaterialIcons name="close" size={24} color={COLORS.text} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
+              {rutinaSeleccionada?.sesiones.map((sesion, index) => (
+                <View key={sesion.id} style={styles.sesionCard}>
+                  <View style={styles.sesionHeader}>
+                    <View style={styles.sesionNumero}>
+                      <Text style={styles.sesionNumeroText}>#{rutinaSeleccionada.sesiones.length - index}</Text>
+                    </View>
+                    <View style={styles.sesionFecha}>
+                      <MaterialIcons name="calendar-today" size={14} color={COLORS.primary} />
+                      <Text style={styles.sesionFechaText}>
+                        {formatearFecha(sesion.fecha)} • {formatearHora(sesion.hora)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.sesionStats}>
+                    <View style={styles.sesionStat}>
+                      <MaterialIcons name="schedule" size={16} color="#FF6B6B" />
+                      <Text style={styles.sesionStatText}>{sesion.duracion_minutos} min</Text>
+                    </View>
+                    <View style={styles.sesionStat}>
+                      <MaterialIcons name="local-fire-department" size={16} color="#FFD93D" />
+                      <Text style={styles.sesionStatText}>{sesion.calorias_quemadas} kcal</Text>
+                    </View>
+                    <View style={styles.sesionStat}>
+                      <MaterialIcons name="fitness-center" size={16} color={COLORS.primary} />
+                      <Text style={styles.sesionStatText}>{sesion.ejercicios_completados?.length || 0} ejercicios</Text>
+                    </View>
+                  </View>
+
+                  {sesion.ejerciciosConNombres && sesion.ejerciciosConNombres.length > 0 && (
+                    <View style={styles.ejerciciosContainer}>
+                      {sesion.ejerciciosConNombres.map((ejercicio, idx) => (
+                        <View key={ejercicio.id} style={styles.ejercicioChip}>
+                          <MaterialIcons name="check-circle" size={14} color={COLORS.success} />
+                          <Text style={styles.ejercicioChipText}>{ejercicio.nombre}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </LinearGradient>
   )
 }
@@ -402,396 +378,263 @@ const styles = StyleSheet.create({
   },
   headerContainer: {
     marginBottom: 24,
-  },
-  headerLeft: {
-    flex: 1,
+    alignItems: 'center',
   },
   title: {
-    fontSize: 34,
+    fontSize: 32,
     fontWeight: '900',
     color: COLORS.text,
-    marginBottom: 6,
-    letterSpacing: -0.5,
+    marginBottom: 4,
   },
   subtitle: {
     fontSize: 15,
     color: COLORS.textSecondary,
     fontWeight: '600',
-    lineHeight: 22,
   },
-  statsMainContainer: {
-    marginBottom: 32,
-    gap: 16,
-  },
-  xpCardLarge: {
-    borderRadius: 24,
-    padding: 24,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  xpCardContent: {
+  statsContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  xpEmoji: {
-    fontSize: 48,
-  },
-  xpInfo: {
-    flex: 1,
-  },
-  xpLabel: {
-    fontSize: 13,
-    color: COLORS.white,
-    opacity: 0.9,
-    marginBottom: 6,
-    fontWeight: '600',
-    letterSpacing: 0.3,
-  },
-  xpValue: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: COLORS.white,
-    letterSpacing: -0.5,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  statCard: {
-    width: (width - 56) / 2,
-  },
-  statGradient: {
+    backgroundColor: COLORS.card,
     borderRadius: 20,
-    padding: 20,
-    alignItems: 'center',
+    padding: 16,
+    marginBottom: 24,
+    gap: 12,
     borderWidth: 1,
     borderColor: COLORS.border + '30',
-    gap: 8,
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
   },
   statValue: {
-    fontSize: 26,
+    fontSize: 18,
     fontWeight: '900',
     color: COLORS.text,
-    letterSpacing: -0.5,
   },
   statLabel: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    fontWeight: '700',
-    letterSpacing: 0.2,
-  },
-  promedioCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.card,
-    borderRadius: 16,
-    padding: 16,
-    gap: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border + '30',
-  },
-  promedioText: {
-    fontSize: 14,
+    fontSize: 11,
     color: COLORS.textSecondary,
     fontWeight: '600',
-  },
-  promedioValue: {
-    fontSize: 14,
-    color: COLORS.primary,
-    fontWeight: '900',
   },
   section: {
     marginBottom: 24,
   },
   sectionTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '900',
     color: COLORS.text,
     marginBottom: 16,
-    letterSpacing: -0.3,
   },
   emptyCard: {
     backgroundColor: COLORS.card,
-    borderRadius: 24,
+    borderRadius: 20,
     padding: 40,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: COLORS.border + '30',
   },
-  emptyIconCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: COLORS.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
   emptyTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '900',
     color: COLORS.text,
+    marginTop: 16,
     marginBottom: 8,
   },
   emptyText: {
     fontSize: 14,
     color: COLORS.textSecondary,
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 24,
+    marginBottom: 20,
   },
   emptyButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: COLORS.primary,
     paddingHorizontal: 24,
-    paddingVertical: 14,
+    paddingVertical: 12,
     borderRadius: 16,
-    gap: 8,
   },
   emptyButtonText: {
     color: COLORS.white,
     fontSize: 15,
     fontWeight: '800',
   },
-  entrenamientoCard: {
+  rutinaCard: {
+    flexDirection: 'row',
     backgroundColor: COLORS.card,
-    borderRadius: 20,
+    borderRadius: 16,
     marginBottom: 12,
+    overflow: 'hidden',
     borderWidth: 1,
     borderColor: COLORS.border + '30',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
-    overflow: 'hidden',
   },
-  entrenamientoCardExpanded: {
-    borderColor: COLORS.primary + '40',
-    shadowOpacity: 0.12,
+  rutinaImage: {
+    width: 90,
+    height: 90,
   },
-  entrenamientoImageContainer: {
-    width: '100%',
-    height: 160,
-    position: 'relative',
-  },
-  entrenamientoImage: {
-    width: '100%',
-    height: '100%',
-  },
-  imageGradient: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 80,
-  },
-  entrenamientoHeader: {
-    flexDirection: 'row',
+  rutinaInfo: {
+    flex: 1,
+    padding: 12,
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-    paddingHorizontal: 20,
-    paddingTop: 20,
   },
-  fechaContainer: {
+  rutinaHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  rutinaNombre: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: COLORS.text,
     flex: 1,
   },
-  fechaBadge: {
+  contadorBadge: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginLeft: 8,
+  },
+  contadorTexto: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: COLORS.white,
+  },
+  rutinaFooter: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.primary + '15',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 12,
-    alignSelf: 'flex-start',
-    marginBottom: 6,
-    gap: 6,
-    borderWidth: 1,
-    borderColor: COLORS.primary + '25',
+    gap: 12,
   },
-  fechaDia: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: COLORS.primary,
-    letterSpacing: 0.3,
+  rutinaDetail: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
-  fechaHora: {
+  rutinaDetailText: {
     fontSize: 12,
     color: COLORS.textSecondary,
     fontWeight: '600',
   },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
   },
-  xpBadgeItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFD93D',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
-    gap: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
+  modalContent: {
+    backgroundColor: COLORS.background,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '85%',
+    paddingBottom: 40,
   },
-  xpBadgeText: {
-    fontSize: 12,
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border + '30',
+  },
+  modalHeaderLeft: {
+    flex: 1,
+  },
+  modalTitle: {
+    fontSize: 22,
     fontWeight: '900',
-    color: '#333',
+    color: COLORS.text,
+    marginBottom: 4,
   },
-  expandButton: {
+  modalSubtitle: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    fontWeight: '600',
+  },
+  closeButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: COLORS.primary + '15',
+    backgroundColor: COLORS.surface,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.primary + '25',
+    marginLeft: 12,
   },
-  entrenamientoNombre: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: COLORS.text,
-    marginBottom: 14,
-    letterSpacing: -0.3,
-    paddingHorizontal: 20,
+  modalScroll: {
+    padding: 20,
   },
-  entrenamientoStats: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-  },
-  nivelBadge: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
-  },
-  nivelText: {
-    fontSize: 12,
-    color: COLORS.white,
-    fontWeight: '900',
-    letterSpacing: 0.3,
-  },
-  statBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.surface,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 10,
-    gap: 5,
-    borderWidth: 1,
-    borderColor: COLORS.border + '40',
-  },
-  statBadgeText: {
-    fontSize: 13,
-    color: COLORS.text,
-    fontWeight: '700',
-  },
-  detallesContainer: {
-    marginTop: 20,
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: COLORS.border + '40',
-    marginBottom: 20,
-  },
-  detallesTitle: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: COLORS.text,
-    marginBottom: 16,
-    letterSpacing: -0.2,
-  },
-  resumenGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 20,
-  },
-  resumenItem: {
-    width: (width - 84) / 2,
-    backgroundColor: COLORS.surface,
+  sesionCard: {
+    backgroundColor: COLORS.card,
     borderRadius: 16,
     padding: 16,
-    alignItems: 'center',
-    gap: 8,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: COLORS.border + '30',
   },
-  resumenLabel: {
-    fontSize: 11,
-    color: COLORS.textSecondary,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-    textTransform: 'uppercase',
-  },
-  resumenValue: {
-    fontSize: 18,
-    color: COLORS.text,
-    fontWeight: '900',
-    letterSpacing: -0.3,
-  },
-  ejerciciosTitle: {
-    fontSize: 15,
-    fontWeight: '900',
-    color: COLORS.text,
-    marginBottom: 12,
-    letterSpacing: -0.2,
-  },
-  ejerciciosList: {
-    gap: 8,
-  },
-  ejercicioItem: {
+  sesionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.surface,
-    borderRadius: 14,
-    padding: 14,
+    marginBottom: 12,
     gap: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border + '30',
   },
-  ejercicioNumber: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+  sesionNumero: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: COLORS.primary + '20',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  ejercicioNumberText: {
+  sesionNumeroText: {
     fontSize: 12,
     fontWeight: '900',
     color: COLORS.primary,
   },
-  ejercicioNombre: {
-    flex: 1,
-    fontSize: 14,
+  sesionFecha: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  sesionFechaText: {
+    fontSize: 13,
     color: COLORS.text,
     fontWeight: '700',
-    letterSpacing: -0.2,
   },
-  bottomSpacer: {
-    height: 40,
+  sesionStats: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
+  },
+  sesionStat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    gap: 4,
+  },
+  sesionStatText: {
+    fontSize: 12,
+    color: COLORS.text,
+    fontWeight: '700',
+  },
+  ejerciciosContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  ejercicioChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: COLORS.success + '30',
+  },
+  ejercicioChipText: {
+    fontSize: 12,
+    color: COLORS.text,
+    fontWeight: '600',
   },
 })

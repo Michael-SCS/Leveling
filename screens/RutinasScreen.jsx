@@ -175,17 +175,7 @@ export default function RutinasScreen({ navigation }) {
           <View style={styles.headerContent}>
             <View>
               <Text style={styles.title}>Tus Rutinas</Text>
-              <Text style={styles.subtitle}>
-                {objetivoUsuario 
-                  ? `Objetivo: ${objetivoUsuario}` 
-                  : 'Todas las rutinas disponibles'}
-              </Text>
             </View>
-            {objetivoUsuario && (
-              <View style={styles.objetivoBadge}>
-                <MaterialIcons name="flag" size={20} color={COLORS.primary} />
-              </View>
-            )}
           </View>
         </Animated.View>
 
@@ -356,7 +346,7 @@ export default function RutinasScreen({ navigation }) {
                   {/* Botón Ver Detalles */}
                   <View style={styles.verDetallesButton}>
                     <Text style={styles.verDetallesText}>Ver ejercicios</Text>
-                    <MaterialIcons name="arrow-forward" size={18} color={COLORS.primary} />
+                    <MaterialIcons name="arrow-forward" size={25} color={'white'} />
                   </View>
                 </View>
               </TouchableOpacity>
@@ -406,21 +396,16 @@ const styles = StyleSheet.create({
   },
   headerContent: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
   },
   title: {
-    fontSize: 34,
+    fontSize: 30,
+    textAlign: 'center',
     fontWeight: '900',
     color: COLORS.text,
     marginBottom: 6,
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    fontSize: 15,
-    color: COLORS.textSecondary,
-    fontWeight: '600',
-    letterSpacing: 0.2,
+    textTransform: 'uppercase'
   },
   objetivoBadge: {
     width: 50,
@@ -490,12 +475,11 @@ const styles = StyleSheet.create({
   },
   rutinaCard: {
     backgroundColor: COLORS.card,
-    borderRadius: 20,
+    borderRadius:20,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: COLORS.border + '40',
     elevation: 6,
-    shadowColor: '#000',
+    shadowColor: '#ffffffff',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
@@ -539,7 +523,8 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   rutinaNombre: {
-    fontSize: 22,
+    fontSize: 20,
+    textAlign: 'center',
     fontWeight: '900',
     color: COLORS.text,
     marginBottom: 8,
@@ -547,10 +532,11 @@ const styles = StyleSheet.create({
     lineHeight: 28,
   },
   rutinaDescripcion: {
-    fontSize: 14,
+    fontSize: 12,
     color: COLORS.textSecondary,
     marginBottom: 16,
     lineHeight: 20,
+    textAlign: 'justify'
   },
   rutinaMetaContainer: {
     flexDirection: 'row',
@@ -579,17 +565,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    backgroundColor: COLORS.primary + '15',
+    backgroundColor: COLORS.primary,
     paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.primary + '30',
+    borderRadius: 20,
+    borderWidth: 2,
   },
   verDetallesText: {
     fontSize: 15,
     fontWeight: '800',
-    color: COLORS.primary,
+    color: 'white',
     letterSpacing: 0.3,
   },
   emptyCard: {
