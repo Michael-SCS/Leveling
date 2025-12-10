@@ -17,7 +17,7 @@
     "ios": {
       "icon": "./assets/icon.png",
       "supportsTablet": true,
-      "bundleIdentifier": "com.leveling.fitness",
+      "bundleIdentifier": "com.fitflow.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -28,7 +28,8 @@
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#0f172a"
       },
-      "package": "com.leveling.fitness",
+      "package": "com.fitflow.app",
+      "versionCode": 1,
       "permissions": [],
       "allowBackup": false,
       "navigationBar": {
