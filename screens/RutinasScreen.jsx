@@ -1,9 +1,11 @@
 import { MaterialIcons } from '@expo/vector-icons'
+import { Image } from 'expo-image'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useEffect, useState } from 'react'
 import {
   ActivityIndicator,
-  Image,
+  Animated,
+  Dimensions,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -15,19 +17,26 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { COLORS } from '../constants/colors'
 import { supabase } from '../lib/supabase'
 
+const { width } = Dimensions.get('window')
+
 export default function RutinasScreen({ navigation }) {
   const insets = useSafeAreaInsets()
   const [loading, setLoading] = useState(true)
   const [rutinas, setRutinas] = useState([])
   const [filtroNivel, setFiltroNivel] = useState('Todas')
   const [filtroEquipo, setFiltroEquipo] = useState('Todos')
-  const [busqueda, setBusqueda] = useState('')
-  const [filtrosExpandidos, setFiltrosExpandidos] = useState(false)
   const [objetivoUsuario, setObjetivoUsuario] = useState(null)
+  const [fadeAnim] = useState(new Animated.Value(0))
 
   useEffect(() => {
     loadUserObjetivo()
     loadRutinas()
+    
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 600,
+      useNativeDriver: true,
+    }).start()
   }, [])
 
   useEffect(() => {
@@ -37,7 +46,6 @@ export default function RutinasScreen({ navigation }) {
     return unsubscribe
   }, [navigation])
 
-  // ==================== FUNCIONES DE CARGA ====================
   const loadUserObjetivo = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -58,10 +66,29 @@ export default function RutinasScreen({ navigation }) {
 
   const loadRutinas = async () => {
     try {
-      const { data, error } = await supabase
-        .from('rutinas_predefinidas')
-        .select('*')
-        .order('nivel', { ascending: true })
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        setLoading(false)
+        return
+      }
+
+      // Cargar objetivo del usuario
+      const { data: userInfo } = await supabase
+        .from('usuarios_info')
+        .select('objetivo')
+        .eq('user_id', user.id)
+        .single()
+
+      const objetivo = userInfo?.objetivo
+
+      // Cargar solo rutinas que coincidan con el objetivo
+      let query = supabase.from('rutinas_predefinidas').select('*')
+      
+      if (objetivo) {
+        query = query.eq('objetivo', objetivo)
+      }
+
+      const { data, error } = await query.order('nivel', { ascending: true })
 
       if (error) throw error
       setRutinas(data || [])
@@ -72,132 +99,20 @@ export default function RutinasScreen({ navigation }) {
     }
   }
 
-  // ==================== FUNCIONES DE NAVEGACIÓN ====================
   const handleRutinaPress = (rutina) => {
     navigation.navigate('RutinaDetalle', { rutinaId: rutina.id })
   }
 
-  // ==================== FUNCIONES DE COLOR Y ESTILO ====================
   const getNivelColor = (nivel) => {
     switch (nivel) {
-      case 'Principiante': return '#00a2ffff'
-      case 'Intermedio': return '#ffcc00ff'
-      case 'Avanzado': return '#FF0000ff'
+      case 'Principiante': return '#4CAF50'
+      case 'Intermedio': return '#FF9800'
+      case 'Avanzado': return '#F44336'
       default: return COLORS.primary
     }
   }
 
-  const getChipColor = (categoria) => {
-    switch (categoria) {
-      case 'Principiante': return '#00a2ffff'
-      case 'Intermedio': return '#ffcc00ff'
-      case 'Avanzado': return '#ff0000ff'
-      case 'Sin Equipo': return '#00b7ffff'
-      case 'Con Equipo': return '#00b7ffff'
-      case 'Cuerpo Completo': return '#00b7ffff'
-      case 'Piernas': return '#00b7ffff'
-      case 'Brazos': return '#00b7ffff'
-      case 'Abdomen': return '#00b7ffff'
-      case 'Espalda': return '#00b7ffff'
-      case 'Pecho': return '#00b7ffff'
-      case 'Fuerza': return '#ff004cff'
-      case 'Resistencia': return '#ff004cff'
-      case 'Flexibilidad': return '#ff004cff'
-      case 'Cardio': return '#ff004cff'
-      case 'Hipertrofia': return '#ff004cff'
-      case 'Pérdida de Grasa': return '#ff004cff'
-      case 'Fitness General': return '#ff004cff'
-      case 'Casa': return '#ffc8efff'
-      case 'Gimnasio': return '#001527ff'
-      case 'Todos':
-      case 'Todas': 
-        return COLORS.primary
-      default: 
-        return COLORS.primary
-    }
-  }
-
-  // ==================== FUNCIONES DE ICONOS Y ETIQUETAS ====================
-  const getIconAndLabel = (key, value) => {
-    const safeValue = value ? String(value) : null
-    
-    switch (key) {
-      case 'parte_trabajada':
-        const parteIconMap = {
-          'Cuerpo Completo': 'accessibility-new',
-          'Piernas': 'directions-run',
-          'Brazos': 'fitness-center',
-          'Abdomen': 'self-improvement',
-          'Espalda': 'airline-seat-recline-normal',
-          'Pecho': 'sports-martial-arts',
-        }
-        return { 
-          icon: parteIconMap[safeValue] || 'accessibility-new',
-          label: safeValue || 'Cuerpo Completo',
-          color: '#000000ff'
-        }
-      case 'objetivo':
-        const objetivoIconMap = {
-          'Fuerza': 'fitness-center',
-          'Resistencia': 'sports-score',
-          'Flexibilidad': 'self-improvement',
-          'Cardio': 'favorite',
-          'Hipertrofia': 'trending-up',
-          'Pérdida de Grasa': 'local-fire-department',
-          'Fitness General': 'whatshot',
-        }
-        return { 
-          icon: objetivoIconMap[safeValue] || 'whatshot',
-          label: safeValue || 'Fitness General',
-          color: '#4CAF50' 
-        }
-      case 'duracion_minutos':
-        return { 
-          icon: 'timer', 
-          label: `${safeValue || '--'} min`,
-          color: '#2196F3'
-        }
-      case 'lugar':
-        const lugarIconMap = {
-          'Casa': 'home',
-          'Gimnasio': 'fitness-center',
-          'Ambos': 'location-on'
-        }
-        return { 
-          icon: lugarIconMap[safeValue] || 'location-on',
-          label: safeValue || 'Ambos',
-          color: '#FB8C00'
-        }
-       case 'equipo':
-        return {
-          icon: value ? 'hardware' : 'person',
-          label: value ? 'Con Equipo' : 'Sin Equipo',
-          color: value ? '#E91E63' : '#9E9E9E'
-        }
-      default:
-        return { 
-          icon: 'info', 
-          label: safeValue || 'Información',
-          color: COLORS.card
-        }
-    }
-  }
-
-  // ==================== FILTRADO DE RUTINAS ====================
   const rutinasFiltradas = rutinas.filter((rutina) => {
-    // Filtro por objetivo del usuario
-    if (objetivoUsuario && rutina.objetivo !== objetivoUsuario) {
-      return false
-    }
-
-    if (busqueda.trim() !== '') {
-      const nombreLower = rutina.nombre.toLowerCase()
-      const busquedaLower = busqueda.toLowerCase()
-      if (!nombreLower.includes(busquedaLower)) {
-        return false
-      }
-    }
-    
     if (filtroNivel !== 'Todas' && rutina.nivel !== filtroNivel) {
       return false
     }
@@ -214,102 +129,6 @@ export default function RutinasScreen({ navigation }) {
     return true
   })
 
-  // ==================== RENDERIZADO DE TARJETAS ====================
-  const renderRutinaCard = (rutina) => {
-    const infoItems = [
-      { key: 'parte_trabajada', value: rutina.parte_trabajada },
-      { key: 'objetivo', value: rutina.objetivo },
-      { key: 'duracion_minutos', value: rutina.duracion_minutos },
-      { key: 'lugar', value: rutina.lugar },
-      { key: 'equipo', value: rutina.equipo },
-    ]
-
-    return (
-      <TouchableOpacity
-        key={rutina.id}
-        style={styles.rutinaCard}
-        onPress={() => handleRutinaPress(rutina)}
-        activeOpacity={0.85}
-      >
-        <Image 
-          source={{ uri: rutina.imagen_url }} 
-          style={styles.rutinaImage} 
-        />
-
-        <LinearGradient 
-          colors={["rgba(0,0,0,0.1)", "rgba(0,0,0,0.95)"]} 
-          style={styles.rutinaGradient}
-        >
-          {/* Header */}
-          <View style={styles.rutinaHeader}>
-            <Text style={styles.rutinaNombre} numberOfLines={1}>
-              {rutina.nombre}
-            </Text>
-
-            <View style={[
-              styles.rutinaBadge, 
-              { backgroundColor: getNivelColor(rutina.nivel) }
-            ]}> 
-              <Text style={styles.rutinaBadgeText}>
-                {rutina.nivel}
-              </Text>
-            </View>
-          </View>
-
-          {/* Content */}
-          <View style={styles.rutinaContent}>
-            {/* Info Items */}
-            <View style={styles.rutinaInfo}>
-              {infoItems.map((item, index) => {
-                const { icon, label, color } = getIconAndLabel(item.key, item.value)
-                
-                return (
-                  <View 
-                    key={index} 
-                    style={[
-                      styles.infoItem,
-                      { backgroundColor: color }
-                    ]}
-                  >
-                    <MaterialIcons 
-                      name={icon} 
-                      size={14} 
-                      color={COLORS.white} 
-                      style={styles.infoIcon} 
-                    />
-                    <Text style={styles.infoText} numberOfLines={1}>
-                      {label}
-                    </Text>
-                  </View>
-                )
-              })}
-            </View>
-
-            {/* Descripción */}
-            <Text style={styles.rutinaDescripcion} numberOfLines={2}>
-              {rutina.descripcion || 'Sin descripción disponible.'}
-            </Text>
-
-            {/* Botón */}
-            <TouchableOpacity 
-              style={styles.verDetallesButton}
-              onPress={() => handleRutinaPress(rutina)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.verDetallesText}>Ver ejercicios</Text>
-              <MaterialIcons 
-                name="arrow-forward" 
-                size={18} 
-                color={COLORS.primary} 
-              />
-            </TouchableOpacity>
-          </View>
-        </LinearGradient>
-      </TouchableOpacity>
-    )
-  }
-
-  // ==================== PANTALLA DE CARGA ====================
   if (loading) {
     return (
       <LinearGradient 
@@ -321,13 +140,13 @@ export default function RutinasScreen({ navigation }) {
           backgroundColor="transparent" 
           barStyle="light-content" 
         />
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <MaterialIcons name="fitness-center" size={60} color={COLORS.primary} />
+        <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 20 }} />
         <Text style={styles.loadingText}>Cargando rutinas...</Text>
       </LinearGradient>
     )
   }
 
-  // ==================== RENDER PRINCIPAL ====================
   return (
     <View style={styles.container}>
       <StatusBar 
@@ -352,111 +171,210 @@ export default function RutinasScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
-        <View style={styles.headerContainer}>
-          <Text style={styles.title}>Rutinas</Text>
-          <Text style={styles.subtitle}>
-            {objetivoUsuario 
-              ? `Rutinas para: ${objetivoUsuario}` 
-              : 'Escoge una rutina por nivel'}
+        <Animated.View style={[styles.headerContainer, { opacity: fadeAnim }]}>
+          <View style={styles.headerContent}>
+            <View>
+              <Text style={styles.title}>Tus Rutinas</Text>
+              <Text style={styles.subtitle}>
+                {objetivoUsuario 
+                  ? `Objetivo: ${objetivoUsuario}` 
+                  : 'Todas las rutinas disponibles'}
+              </Text>
+            </View>
+            {objetivoUsuario && (
+              <View style={styles.objetivoBadge}>
+                <MaterialIcons name="flag" size={20} color={COLORS.primary} />
+              </View>
+            )}
+          </View>
+        </Animated.View>
+
+        {/* Filtros Compactos */}
+        <View style={styles.filtrosCompactos}>
+          {/* Filtro Nivel */}
+          <View style={styles.filtroGroup}>
+            <Text style={styles.filtroGroupLabel}>Nivel</Text>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filtroChipsContainer}
+            >
+              {['Todas', 'Principiante', 'Intermedio', 'Avanzado'].map((nivel) => (
+                <TouchableOpacity
+                  key={nivel}
+                  style={[
+                    styles.filterChip,
+                    filtroNivel === nivel && styles.filterChipActive
+                  ]}
+                  onPress={() => setFiltroNivel(nivel)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[
+                    styles.filterChipText,
+                    filtroNivel === nivel && styles.filterChipTextActive
+                  ]}>
+                    {nivel}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+
+          {/* Filtro Equipo */}
+          <View style={styles.filtroGroup}>
+            <Text style={styles.filtroGroupLabel}>Equipo</Text>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filtroChipsContainer}
+            >
+              {['Todos', 'Sin Equipo', 'Con Equipo'].map((tipo) => (
+                <TouchableOpacity
+                  key={tipo}
+                  style={[
+                    styles.filterChip,
+                    filtroEquipo === tipo && styles.filterChipActive
+                  ]}
+                  onPress={() => setFiltroEquipo(tipo)}
+                  activeOpacity={0.7}
+                >
+                  <MaterialIcons 
+                    name={tipo === 'Sin Equipo' ? 'person' : tipo === 'Con Equipo' ? 'fitness-center' : 'apps'} 
+                    size={14} 
+                    color={filtroEquipo === tipo ? COLORS.white : COLORS.textSecondary} 
+                  />
+                  <Text style={[
+                    styles.filterChipText,
+                    filtroEquipo === tipo && styles.filterChipTextActive
+                  ]}>
+                    {tipo}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+
+        {/* Contador de Rutinas */}
+        <View style={styles.contadorContainer}>
+          <Text style={styles.contadorText}>
+            {rutinasFiltradas.length} {rutinasFiltradas.length === 1 ? 'rutina encontrada' : 'rutinas encontradas'}
           </Text>
         </View>
 
-        {/* Botón de expandir/colapsar filtros */}
-        <TouchableOpacity
-          style={styles.filtrosToggle}
-          onPress={() => setFiltrosExpandidos(!filtrosExpandidos)}
-          activeOpacity={0.7}
-        >
-          <View style={styles.filtrosToggleContent}>
-            <MaterialIcons name="filter-list" size={20} color={COLORS.text} />
-            <Text style={styles.filtrosToggleText}>Filtros avanzados</Text>
-          </View>
-          <MaterialIcons 
-            name={filtrosExpandidos ? "expand-less" : "expand-more"} 
-            size={24} 
-            color={COLORS.text} 
-          />
-        </TouchableOpacity>
-
-        {/* Filtros desplegables */}
-        {filtrosExpandidos && (
-          <View style={styles.filtrosContainer}>
-            {/* Filtro de Nivel */}
-            <View style={styles.filtroSection}>
-              <Text style={styles.filtroLabel}>Nivel</Text>
-              <ScrollView 
-                horizontal 
-                showsHorizontalScrollIndicator={false} 
-                style={styles.filtroScrollView}
-              >
-                {['Todas', 'Principiante', 'Intermedio', 'Avanzado'].map((nivel) => (
-                  <TouchableOpacity
-                    key={nivel}
-                    style={[
-                      styles.filterChip, 
-                      filtroNivel === nivel && { 
-                        backgroundColor: getChipColor(nivel) 
-                      }
-                    ]}
-                    onPress={() => setFiltroNivel(nivel)}
-                  >
-                    <Text style={[
-                      styles.filterChipText, 
-                      filtroNivel === nivel && { color: COLORS.white }
-                    ]}>
-                      {nivel}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-
-            {/* Filtro de Equipo */}
-            <View style={styles.filtroSection}>
-              <Text style={styles.filtroLabel}>Equipo</Text>
-              <ScrollView 
-                horizontal 
-                showsHorizontalScrollIndicator={false} 
-                style={styles.filtroScrollView}
-              >
-                {['Todos', 'Sin Equipo', 'Con Equipo'].map((tipo) => (
-                  <TouchableOpacity
-                    key={tipo}
-                    style={[
-                      styles.filterChip, 
-                      filtroEquipo === tipo && { 
-                        backgroundColor: getChipColor(tipo) 
-                      }
-                    ]}
-                    onPress={() => setFiltroEquipo(tipo)}
-                  >
-                    <Text style={[
-                      styles.filterChipText, 
-                      filtroEquipo === tipo && { color: COLORS.white }
-                    ]}>
-                      {tipo}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          </View>
-        )}
-
         {/* Lista de Rutinas */}
-        <View style={styles.rutinasContainer}>
-          {rutinasFiltradas.map((rutina) => renderRutinaCard(rutina))}
-        </View>
+        <Animated.View style={[styles.rutinasContainer, { opacity: fadeAnim }]}>
+          {rutinasFiltradas.map((rutina, index) => (
+            <Animated.View
+              key={rutina.id}
+              style={[
+                styles.rutinaCardWrapper,
+                {
+                  opacity: fadeAnim,
+                  transform: [{
+                    translateY: fadeAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [50, 0]
+                    })
+                  }]
+                }
+              ]}
+            >
+              <TouchableOpacity
+                style={styles.rutinaCard}
+                onPress={() => handleRutinaPress(rutina)}
+                activeOpacity={0.9}
+              >
+                {/* Imagen */}
+                <View style={styles.rutinaImageContainer}>
+                  <Image
+                    source={{ uri: rutina.imagen_url }}
+                    style={styles.rutinaImage}
+                    contentFit="cover"
+                  />
+                  <LinearGradient
+                    colors={['transparent', 'rgba(0,0,0,0.9)']}
+                    style={styles.imageGradient}
+                  />
+                  
+                  {/* Badge Nivel */}
+                  <View style={[
+                    styles.nivelBadge,
+                    { backgroundColor: getNivelColor(rutina.nivel) }
+                  ]}>
+                    <Text style={styles.nivelBadgeText}>{rutina.nivel}</Text>
+                  </View>
+                </View>
 
-        {/* Mensaje vacío */}
+                {/* Contenido */}
+                <View style={styles.rutinaContent}>
+                  <Text style={styles.rutinaNombre} numberOfLines={2}>
+                    {rutina.nombre}
+                  </Text>
+
+                  {rutina.descripcion && (
+                    <Text style={styles.rutinaDescripcion} numberOfLines={2}>
+                      {rutina.descripcion}
+                    </Text>
+                  )}
+
+                  {/* Meta Info */}
+                  <View style={styles.rutinaMetaContainer}>
+                    <View style={styles.metaItem}>
+                      <MaterialIcons name="schedule" size={16} color={COLORS.primary} />
+                      <Text style={styles.metaText}>{rutina.duracion_minutos} min</Text>
+                    </View>
+
+                    <View style={styles.metaDivider} />
+
+                    <View style={styles.metaItem}>
+                      <MaterialIcons 
+                        name={rutina.equipo ? 'fitness-center' : 'person'} 
+                        size={16} 
+                        color={COLORS.primary} 
+                      />
+                      <Text style={styles.metaText}>
+                        {rutina.equipo ? 'Con equipo' : 'Sin equipo'}
+                      </Text>
+                    </View>
+
+                    {rutina.lugar && (
+                      <>
+                        <View style={styles.metaDivider} />
+                        <View style={styles.metaItem}>
+                          <MaterialIcons 
+                            name={rutina.lugar === 'Casa' ? 'home' : 'fitness-center'} 
+                            size={16} 
+                            color={COLORS.primary} 
+                          />
+                          <Text style={styles.metaText}>{rutina.lugar}</Text>
+                        </View>
+                      </>
+                    )}
+                  </View>
+
+                  {/* Botón Ver Detalles */}
+                  <View style={styles.verDetallesButton}>
+                    <Text style={styles.verDetallesText}>Ver ejercicios</Text>
+                    <MaterialIcons name="arrow-forward" size={18} color={COLORS.primary} />
+                  </View>
+                </View>
+              </TouchableOpacity>
+            </Animated.View>
+          ))}
+        </Animated.View>
+
+        {/* Empty State */}
         {rutinasFiltradas.length === 0 && (
           <View style={styles.emptyCard}>
-            <MaterialIcons name="fitness-center" size={48} color={COLORS.textSecondary} />
-            <Text style={styles.emptyTitle}>No hay rutinas</Text>
+            <View style={styles.emptyIconCircle}>
+              <MaterialIcons name="fitness-center" size={48} color={COLORS.textSecondary} />
+            </View>
+            <Text style={styles.emptyTitle}>No hay rutinas disponibles</Text>
             <Text style={styles.emptyText}>
               {objetivoUsuario 
-                ? `No hay rutinas disponibles para tu objetivo: ${objetivoUsuario}. Cambia el filtro para ver otras rutinas.`
-                : 'Cambia el filtro para ver otras rutinas disponibles.'}
+                ? `No encontramos rutinas para tu objetivo: ${objetivoUsuario}. Intenta ajustar los filtros.`
+                : 'Intenta ajustar los filtros para ver más rutinas.'}
             </Text>
           </View>
         )}
@@ -465,7 +383,6 @@ export default function RutinasScreen({ navigation }) {
   )
 }
 
-// ==================== ESTILOS ====================
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -479,235 +396,225 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 16,
     color: COLORS.textSecondary,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   scrollContent: {
-    paddingHorizontal: 0,
+    paddingHorizontal: 20,
   },
   headerContainer: {
-    paddingHorizontal: 24,
     marginBottom: 24,
-    marginTop: 8,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
+    fontSize: 34,
+    fontWeight: '900',
     color: COLORS.text,
-    marginBottom: 4,
+    marginBottom: 6,
+    letterSpacing: -0.5,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 15,
     color: COLORS.textSecondary,
-    marginBottom: 12,
-  },
-  filtrosToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: COLORS.card,
-    marginHorizontal: 24,
-    marginBottom: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  filtrosToggleContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  filtrosToggleText: {
-    fontSize: 16,
     fontWeight: '600',
-    color: COLORS.text,
+    letterSpacing: 0.2,
   },
-  filtrosContainer: {
-    backgroundColor: COLORS.card,
-    marginHorizontal: 24,
+  objetivoBadge: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: COLORS.primary + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.primary + '30',
+  },
+  filtrosCompactos: {
     marginBottom: 20,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
   },
-  filtroSection: {
+  filtroGroup: {
     marginBottom: 16,
   },
-  filtroLabel: {
-    fontSize: 14,
-    fontWeight: '600',
+  filtroGroupLabel: {
+    fontSize: 13,
+    fontWeight: '700',
     color: COLORS.text,
-    marginBottom: 8,
-    marginLeft: 4,
+    marginBottom: 10,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
-  filtroScrollView: {
-    flexDirection: 'row',
+  filtroChipsContainer: {
+    paddingRight: 20,
   },
   filterChip: {
-    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,
     backgroundColor: COLORS.card,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    marginRight: 8,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 1,
+    borderColor: COLORS.border + '40',
+    marginRight: 10,
+  },
+  filterChipActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
   },
   filterChipText: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.text,
+    color: COLORS.textSecondary,
+  },
+  filterChipTextActive: {
+    color: COLORS.white,
+  },
+  contadorContainer: {
+    marginBottom: 20,
+  },
+  contadorText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+    letterSpacing: 0.3,
   },
   rutinasContainer: {
-    paddingHorizontal: 24,
+    gap: 16,
+  },
+  rutinaCardWrapper: {
+    marginBottom: 4,
   },
   rutinaCard: {
-    height: 350,
-    borderRadius: 20,
-    marginBottom: 20,
-    overflow: 'hidden',
     backgroundColor: COLORS.card,
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: COLORS.border + '40',
     elevation: 6,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.1,
     shadowRadius: 8,
+  },
+  rutinaImageContainer: {
+    width: '100%',
+    height: 200,
+    position: 'relative',
   },
   rutinaImage: {
     width: '100%',
     height: '100%',
+  },
+  imageGradient: {
     position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 100,
   },
-  rutinaGradient: {
-    flex: 1,
-    justifyContent: 'space-between',
-  },
-  rutinaHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-  },
-  rutinaNombre: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: COLORS.white,
-    flex: 1,
-    marginRight: 10,
-    textShadowColor: 'rgba(0,0,0,0.7)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
-  },
-  rutinaBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+  nivelBadge: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 12,
     elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
-    alignSelf: 'flex-start',
   },
-  rutinaBadgeText: {
+  nivelBadgeText: {
     color: COLORS.white,
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
   rutinaContent: {
     padding: 20,
   },
+  rutinaNombre: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: COLORS.text,
+    marginBottom: 8,
+    letterSpacing: -0.3,
+    lineHeight: 28,
+  },
   rutinaDescripcion: {
     fontSize: 14,
-    color: COLORS.white,
-    opacity: 0.9,
+    color: COLORS.textSecondary,
     marginBottom: 16,
     lineHeight: 20,
   },
-  rutinaInfo: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 16,
-  },
-  infoItem: {
+  rutinaMetaContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 10,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
+    marginBottom: 16,
+    flexWrap: 'wrap',
   },
-  infoIcon: {
-    marginRight: 4,
-    color: COLORS.white,
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
-  infoText: {
-    fontSize: 11,
-    color: COLORS.white,
+  metaText: {
+    fontSize: 13,
+    color: COLORS.text,
     fontWeight: '600',
+  },
+  metaDivider: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: COLORS.textSecondary + '40',
+    marginHorizontal: 12,
   },
   verDetallesButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.white,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 12,
     gap: 8,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+    backgroundColor: COLORS.primary + '15',
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.primary + '30',
   },
   verDetallesText: {
     fontSize: 15,
-    fontWeight: 'bold',
+    fontWeight: '800',
     color: COLORS.primary,
+    letterSpacing: 0.3,
   },
   emptyCard: {
-    marginHorizontal: 24,
-    marginTop: 20,
     backgroundColor: COLORS.card,
-    borderRadius: 20,
+    borderRadius: 24,
     padding: 40,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: COLORS.border,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    borderColor: COLORS.border + '40',
+    marginTop: 20,
+  },
+  emptyIconCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: COLORS.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
   },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 20,
+    fontWeight: '900',
     color: COLORS.text,
     marginBottom: 8,
-    marginTop: 16,
     textAlign: 'center',
   },
   emptyText: {

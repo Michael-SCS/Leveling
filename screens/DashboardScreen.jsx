@@ -1,4 +1,5 @@
 import { MaterialIcons } from '@expo/vector-icons'
+import { Image } from 'expo-image'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useEffect, useState } from 'react'
 import {
@@ -7,7 +8,6 @@ import {
   Animated,
   Dimensions,
   FlatList,
-  Image,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -30,9 +30,8 @@ export default function DashboardScreen({ navigation }) {
   const [motivacion, setMotivacion] = useState('')
   const [entrenamientosHoy, setEntrenamientosHoy] = useState([])
   const [favoritos, setFavoritos] = useState([])
-  const [clasicos, setClasicos] = useState([])
+  const [iniciosRapidos, setIniciosRapidos] = useState([])
   const [actividadReciente, setActividadReciente] = useState([])
-  const [rutinasRecientes, setRutinasRecientes] = useState([])
   const [loadingData, setLoadingData] = useState(false)
   const [fadeAnim] = useState(new Animated.Value(0))
   const [slideAnim] = useState(new Animated.Value(50))
@@ -151,31 +150,51 @@ export default function DashboardScreen({ navigation }) {
     }
   }
 
+  const getObjetivosCompatibles = (objetivo) => {
+    const mapeo = {
+      'Perder peso': ['Perder peso', 'Tonificar', 'Mejorar resistencia'],
+      'Ganar músculo': ['Ganar músculo', 'Tonificar', 'Aumentar fuerza'],
+      'Tonificar': ['Tonificar', 'Perder peso', 'Mejorar resistencia'],
+      'Mejorar resistencia': ['Mejorar resistencia', 'Perder peso', 'Tonificar'],
+      'Aumentar fuerza': ['Aumentar fuerza', 'Ganar músculo', 'Tonificar']
+    }
+    return mapeo[objetivo] || [objetivo]
+  }
+
   const loadEntrenamientosData = async () => {
     setLoadingData(true)
     try {
-      const { data: todosEntrenamientos, error: errorTodos } = await supabase
-        .from('rutinas_predefinidas')
-        .select('*')
-        .limit(20)
-
-      if (errorTodos) throw errorTodos
-
-      const shuffled = (todosEntrenamientos || []).sort(() => Math.random() - 0.5)
-      setEntrenamientosHoy(shuffled.slice(0, 6))
-
-      // Cargar rutinas recientes (últimas 5 agregadas)
-      const { data: recientesData, error: errorRecientes } = await supabase
-        .from('rutinas_predefinidas')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(5)
-
-      if (!errorRecientes) {
-        setRutinasRecientes(recientesData || [])
+      // Obtener fecha de hoy
+      const hoy = new Date().toISOString().split('T')[0]
+      
+      // Filtrar por objetivo del usuario
+      let queryBuilder = supabase.from('rutinas_predefinidas').select('*')
+      
+      if (userInfo?.objetivo) {
+        const objetivosCompatibles = getObjetivosCompatibles(userInfo.objetivo)
+        queryBuilder = queryBuilder.in('objetivo', objetivosCompatibles)
       }
 
-      // Cargar favoritos desde la tabla rutinas_favoritas
+      const { data: rutinasFiltradas, error: errorFiltradas } = await queryBuilder.limit(20)
+
+      if (errorFiltradas) throw errorFiltradas
+
+      // Generar seed basado en la fecha para consistencia del día
+      const seed = parseInt(hoy.replace(/-/g, ''))
+      const seededRandom = (index) => {
+        const x = Math.sin(seed + index) * 10000
+        return x - Math.floor(x)
+      }
+
+      // Ordenar con seed del día
+      const rutinasOrdenadas = (rutinasFiltradas || [])
+        .map((item, index) => ({ item, sort: seededRandom(index) }))
+        .sort((a, b) => a.sort - b.sort)
+        .map(({ item }) => item)
+
+      setEntrenamientosHoy(rutinasOrdenadas.slice(0, 6))
+
+      // Cargar favoritos desde rutinas_favoritas
       if (user) {
         const { data: favoritosData, error: errorFavoritos } = await supabase
           .from('rutinas_favoritas')
@@ -184,8 +203,7 @@ export default function DashboardScreen({ navigation }) {
             rutinas_predefinidas (*)
           `)
           .eq('user_id', user.id)
-          .order('fecha_agregado', { ascending: false })
-          .limit(5)
+          .order('created_at', { ascending: false })
 
         if (!errorFavoritos && favoritosData && favoritosData.length > 0) {
           const rutinasFavoritas = favoritosData
@@ -197,57 +215,23 @@ export default function DashboardScreen({ navigation }) {
           
           setFavoritos(rutinasFavoritas)
         } else {
-          // Fallback: usar el método anterior si no hay favoritos marcados
-          const { data: completados, error: errorCompletados } = await supabase
-            .from('entrenamientos_completados')
-            .select('rutina_id')
-            .eq('user_id', user.id)
-
-          if (!errorCompletados && completados && completados.length > 0) {
-            const frecuencias = {}
-            completados.forEach(item => {
-              if (item.rutina_id) {
-                frecuencias[item.rutina_id] = (frecuencias[item.rutina_id] || 0) + 1
-              }
-            })
-
-            const topRutinas = Object.entries(frecuencias)
-              .sort((a, b) => b[1] - a[1])
-              .slice(0, 5)
-
-            if (topRutinas.length > 0) {
-              const ids = topRutinas.map(([id]) => parseInt(id))
-
-              const { data: rutinasFav, error: errorFav } = await supabase
-                .from('rutinas_predefinidas')
-                .select('*')
-                .in('id', ids)
-
-              if (!errorFav && rutinasFav) {
-                const rutinasConConteo = rutinasFav.map(rutina => ({
-                  ...rutina,
-                  vecesCompletada: frecuencias[rutina.id] || 0,
-                }))
-
-                rutinasConConteo.sort((a, b) => b.vecesCompletada - a.vecesCompletada)
-                setFavoritos(rutinasConConteo)
-              }
-            }
-          }
+          setFavoritos([])
         }
       }
 
-      const { data: clasicosData, error: errorClasicos } = await supabase
+      // Cargar inicios rápidos (rutinas cortas)
+      const { data: rapidosData, error: errorRapidos } = await supabase
         .from('rutinas_predefinidas')
         .select('*')
         .lte('duracion_minutos', 20)
         .limit(10)
 
-      if (errorClasicos) throw errorClasicos
+      if (errorRapidos) throw errorRapidos
 
-      const clasicosShuffled = (clasicosData || []).sort(() => Math.random() - 0.5)
-      setClasicos(clasicosShuffled.slice(0, 5))
+      const rapidosShuffled = (rapidosData || []).sort(() => Math.random() - 0.5)
+      setIniciosRapidos(rapidosShuffled.slice(0, 5))
 
+      // Cargar actividad reciente (solo 2 últimas)
       if (user) {
         const { data: recenteData, error: errorReciente } = await supabase
           .from('entrenamientos_completados')
@@ -257,14 +241,16 @@ export default function DashboardScreen({ navigation }) {
             duracion_minutos,
             calorias_quemadas,
             xp_ganada,
+            rutina_id,
             rutinas_predefinidas (
               nombre,
-              nivel
+              nivel,
+              imagen_url
             )
           `)
           .eq('user_id', user.id)
           .order('fecha', { ascending: false })
-          .limit(3)
+          .limit(2)
 
         if (!errorReciente) {
           setActividadReciente(recenteData || [])
@@ -329,7 +315,7 @@ export default function DashboardScreen({ navigation }) {
         <Image
           source={{ uri: item.imagen_url }}
           style={styles.rutinaImage}
-          resizeMode="cover"
+          contentFit="cover"
         />
       ) : (
         <LinearGradient
@@ -348,12 +334,9 @@ export default function DashboardScreen({ navigation }) {
           <Text style={styles.rutinaBadgeText}>{item.nivel}</Text>
         </View>
 
-        {(item.vecesCompletada || item.esFavorito) && (
+        {item.esFavorito && (
           <View style={styles.favoritoCountBadge}>
             <MaterialIcons name="favorite" size={12} color="#FF6B6B" />
-            {item.vecesCompletada && (
-              <Text style={styles.favoritoCountText}>{item.vecesCompletada}x</Text>
-            )}
           </View>
         )}
 
@@ -376,57 +359,6 @@ export default function DashboardScreen({ navigation }) {
           </View>
         </View>
       </LinearGradient>
-    </TouchableOpacity>
-  )
-
-  const renderRutinaSmallCard = ({ item }) => (
-    <TouchableOpacity
-      style={styles.rutinaSmallCard}
-      onPress={() => handleRutinaPress(item)}
-      activeOpacity={0.85}
-    >
-      <View style={styles.rutinaSmallImageContainer}>
-        {item.imagen_url ? (
-          <Image
-            source={{ uri: item.imagen_url }}
-            style={styles.rutinaSmallImage}
-            resizeMode="cover"
-          />
-        ) : (
-          <LinearGradient
-            colors={[COLORS.primary, COLORS.card]}
-            style={styles.rutinaSmallImage}
-          >
-            <MaterialIcons name="fitness-center" size={20} color={COLORS.white} />
-          </LinearGradient>
-        )}
-        <View style={styles.rutinaSmallBadge}>
-          <MaterialIcons name="new-releases" size={10} color="#FFD700" />
-        </View>
-      </View>
-
-      <View style={styles.rutinaSmallContent}>
-        <Text style={styles.rutinaSmallNombre} numberOfLines={2}>
-          {item.nombre}
-        </Text>
-        
-        <View style={styles.rutinaSmallMeta}>
-          <View style={styles.rutinaSmallMetaItem}>
-            <MaterialIcons name="schedule" size={10} color={COLORS.textSecondary} />
-            <Text style={styles.rutinaSmallMetaText}>
-              {item.duracion_minutos} min
-            </Text>
-          </View>
-          <View style={styles.rutinaSmallDivider} />
-          <Text style={styles.rutinaSmallFecha}>
-            {formatearFecha(item.created_at)}
-          </Text>
-        </View>
-
-        <View style={styles.rutinaSmallNivelBadge}>
-          <Text style={styles.rutinaSmallNivelText}>{item.nivel}</Text>
-        </View>
-      </View>
     </TouchableOpacity>
   )
 
@@ -543,8 +475,11 @@ export default function DashboardScreen({ navigation }) {
             <View>
               <Text style={styles.sectionTitle}>Opciones para Hoy</Text>
               <Text style={styles.sectionSubtitle}>
-                {userInfo?.objetivo ? `Para tu objetivo: ${userInfo.objetivo}` : getFechaHoy()}
+                {userInfo?.objetivo ? `Para tu objetivo: ${userInfo.objetivo}` : 'Personalizadas para ti'}
               </Text>
+            </View>
+            <View style={styles.todayBadge}>
+              <MaterialIcons name="today" size={16} color={COLORS.primary} />
             </View>
           </View>
 
@@ -571,37 +506,42 @@ export default function DashboardScreen({ navigation }) {
           )}
         </View>
 
-        {/* RUTINAS RECIENTES AGREGADAS */}
-        {rutinasRecientes.length > 0 && (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <View>
-                <Text style={styles.sectionTitle}>Recién Agregadas</Text>
-                <Text style={styles.sectionSubtitle}>Nuevas rutinas para probar</Text>
-              </View>
-              <View style={styles.nuevoBadge}>
-                <MaterialIcons name="fiber-new" size={16} color="#FFD700" />
-              </View>
+        {/* INICIOS RÁPIDOS */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View>
+              <Text style={styles.sectionTitle}>Inicios Rápidos</Text>
+              <Text style={styles.sectionSubtitle}>Entrenamientos cortos y efectivos</Text>
             </View>
-
-            {loadingData ? (
-              <View style={styles.loadingSection}>
-                <ActivityIndicator size="small" color={COLORS.primary} />
-              </View>
-            ) : (
-              <FlatList
-                data={rutinasRecientes}
-                renderItem={renderRutinaSmallCard}
-                keyExtractor={(item) => `reciente-${item.id}`}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.rutinasSmallCarousel}
-              />
-            )}
+            <View style={styles.rapidoBadge}>
+              <MaterialIcons name="bolt" size={16} color="#FFD700" />
+            </View>
           </View>
-        )}
 
-        {/* FAVORITOS */}
+          {loadingData ? (
+            <View style={styles.loadingSection}>
+              <ActivityIndicator size="small" color={COLORS.primary} />
+            </View>
+          ) : iniciosRapidos.length > 0 ? (
+            <FlatList
+              data={iniciosRapidos}
+              renderItem={renderRutinaCard}
+              keyExtractor={(item) => `rapido-${item.id}`}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              snapToInterval={width * 0.7 + 16}
+              decelerationRate="fast"
+              contentContainerStyle={styles.rutinasCarousel}
+            />
+          ) : (
+            <View style={styles.emptyCard}>
+              <MaterialIcons name="fitness-center" size={40} color={COLORS.textSecondary} />
+              <Text style={styles.emptyText}>No hay inicios rápidos disponibles</Text>
+            </View>
+          )}
+        </View>
+
+        {/* TUS FAVORITOS */}
         {favoritos.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -627,41 +567,6 @@ export default function DashboardScreen({ navigation }) {
           </View>
         )}
 
-        {/* CLÁSICOS */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <View>
-              <Text style={styles.sectionTitle}>Clásicos - Inicio Rápido</Text>
-              <Text style={styles.sectionSubtitle}>Entrenamientos cortos y efectivos</Text>
-            </View>
-            <View style={styles.rapidoBadge}>
-              <MaterialIcons name="bolt" size={16} color="#FFD700" />
-            </View>
-          </View>
-
-          {loadingData ? (
-            <View style={styles.loadingSection}>
-              <ActivityIndicator size="small" color={COLORS.primary} />
-            </View>
-          ) : clasicos.length > 0 ? (
-            <FlatList
-              data={clasicos}
-              renderItem={renderRutinaCard}
-              keyExtractor={(item) => `clasico-${item.id}`}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              snapToInterval={width * 0.7 + 16}
-              decelerationRate="fast"
-              contentContainerStyle={styles.rutinasCarousel}
-            />
-          ) : (
-            <View style={styles.emptyCard}>
-              <MaterialIcons name="fitness-center" size={40} color={COLORS.textSecondary} />
-              <Text style={styles.emptyText}>No hay clásicos disponibles</Text>
-            </View>
-          )}
-        </View>
-
         {/* ACTIVIDAD RECIENTE */}
         {actividadReciente.length > 0 && (
           <View style={styles.section}>
@@ -682,40 +587,60 @@ export default function DashboardScreen({ navigation }) {
             <View style={styles.actividadContainer}>
               {actividadReciente.map((sesion) => (
                 <View key={sesion.id} style={styles.sesionCard}>
-                  <View style={styles.sesionHeader}>
-                    {sesion.xp_ganada > 0 && (
-                      <View style={styles.sesionXpBadge}>
-                        <Text style={styles.sesionXpText}>+{sesion.xp_ganada} XP</Text>
-                      </View>
-                    )}
-                  </View>
-
-                  <Text style={styles.sesionNombre} numberOfLines={1}>
-                    {sesion.rutinas_predefinidas?.nombre || 'Rutina'}
-                  </Text>
-
-                  <View style={styles.sesionStats}>
-                    <View style={styles.sesionStatItem}>
-                      <MaterialIcons name="schedule" size={14} color={COLORS.textSecondary} />
-                      <Text style={styles.sesionStatText}>{sesion.duracion_minutos} min</Text>
-                    </View>
-                    <View style={styles.sesionStatItem}>
-                      <MaterialIcons
-                        name="local-fire-department"
-                        size={14}
-                        color="#FF6B6B"
+                  {/* Imagen de la rutina */}
+                  {sesion.rutinas_predefinidas?.imagen_url && (
+                    <View style={styles.sesionImageContainer}>
+                      <Image
+                        source={{ uri: sesion.rutinas_predefinidas.imagen_url }}
+                        style={styles.sesionImage}
+                        contentFit="cover"
                       />
-                      <Text style={styles.sesionStatText}>
-                        {sesion.calorias_quemadas || 0} kcal
-                      </Text>
+                      <LinearGradient
+                        colors={['transparent', 'rgba(0,0,0,0.8)']}
+                        style={styles.sesionImageGradient}
+                      />
                     </View>
-                    {sesion.rutinas_predefinidas?.nivel && (
-                      <View style={styles.sesionNivelBadge}>
-                        <Text style={styles.sesionNivelText}>
-                          {sesion.rutinas_predefinidas.nivel}
+                  )}
+
+                  <View style={styles.sesionContent}>
+                    <View style={styles.sesionHeader}>
+                      {sesion.xp_ganada > 0 && (
+                        <View style={styles.sesionXpBadge}>
+                          <MaterialIcons name="star" size={12} color="#FFD700" />
+                          <Text style={styles.sesionXpText}>+{sesion.xp_ganada} XP</Text>
+                        </View>
+                      )}
+                    </View>
+
+                    <Text style={styles.sesionNombre} numberOfLines={1}>
+                      {sesion.rutinas_predefinidas?.nombre || 'Rutina'}
+                    </Text>
+
+                    <View style={styles.sesionStats}>
+                      <View style={styles.sesionStatItem}>
+                        <MaterialIcons name="schedule" size={14} color={COLORS.textSecondary} />
+                        <Text style={styles.sesionStatText}>{sesion.duracion_minutos} min</Text>
+                      </View>
+                      <View style={styles.sesionStatItem}>
+                        <MaterialIcons
+                          name="local-fire-department"
+                          size={14}
+                          color="#FF6B6B"
+                        />
+                        <Text style={styles.sesionStatText}>
+                          {sesion.calorias_quemadas || 0} kcal
                         </Text>
                       </View>
-                    )}
+                      {sesion.rutinas_predefinidas?.nivel && (
+                        <View style={styles.sesionNivelBadge}>
+                          <Text style={styles.sesionNivelText}>
+                            {sesion.rutinas_predefinidas.nivel}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+
+                    <Text style={styles.sesionFecha}>{formatearFecha(sesion.fecha)}</Text>
                   </View>
                 </View>
               ))}
@@ -884,6 +809,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.2,
   },
+  todayBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.primary + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   favoritoBadge: {
     width: 40,
     height: 40,
@@ -900,18 +833,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  nuevoBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,215,0,0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   rutinasCarousel: {
-    paddingRight: 20,
-  },
-  rutinasSmallCarousel: {
     paddingRight: 20,
   },
   rutinaCard: {
@@ -994,93 +916,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
   },
-  rutinaSmallCard: {
-    width: width * 0.45,
-    backgroundColor: COLORS.card,
-    borderRadius: 16,
-    marginRight: 12,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: COLORS.border + '40',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  rutinaSmallImageContainer: {
-    position: 'relative',
-    width: '100%',
-    height: 100,
-  },
-  rutinaSmallImage: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  rutinaSmallBadge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    borderRadius: 12,
-    width: 24,
-    height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  rutinaSmallContent: {
-    padding: 12,
-  },
-  rutinaSmallNombre: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: COLORS.text,
-    marginBottom: 8,
-    lineHeight: 18,
-    letterSpacing: -0.2,
-  },
-  rutinaSmallMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-    gap: 6,
-  },
-  rutinaSmallMetaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-  },
-  rutinaSmallMetaText: {
-    fontSize: 11,
-    color: COLORS.textSecondary,
-    fontWeight: '600',
-  },
-  rutinaSmallDivider: {
-    width: 3,
-    height: 3,
-    borderRadius: 1.5,
-    backgroundColor: COLORS.textSecondary + '50',
-  },
-  rutinaSmallFecha: {
-    fontSize: 11,
-    color: COLORS.textSecondary,
-    fontWeight: '600',
-  },
-  rutinaSmallNivelBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: COLORS.primary + '15',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  rutinaSmallNivelText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: COLORS.primary,
-    letterSpacing: 0.3,
-  },
   loadingSection: {
     alignItems: 'center',
     paddingVertical: 40,
@@ -1101,12 +936,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
-  },
-  favoritoCountText: {
-    color: '#FF6B6B',
-    fontSize: 12,
-    fontWeight: '900',
-    letterSpacing: 0.3,
   },
   emptyCard: {
     backgroundColor: COLORS.card,
@@ -1143,15 +972,34 @@ const styles = StyleSheet.create({
   },
   sesionCard: {
     backgroundColor: COLORS.card,
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 20,
+    overflow: 'hidden',
     borderWidth: 1,
     borderColor: COLORS.border + '40',
-    elevation: 2,
+    elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+  },
+  sesionImageContainer: {
+    width: '100%',
+    height: 140,
+    position: 'relative',
+  },
+  sesionImage: {
+    width: '100%',
+    height: '100%',
+  },
+  sesionImageGradient: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 60,
+  },
+  sesionContent: {
+    padding: 16,
   },
   sesionHeader: {
     flexDirection: 'row',
@@ -1160,10 +1008,18 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sesionXpBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#FFD93D',
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRadius: 10,
+    gap: 4,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
   sesionXpText: {
     fontSize: 11,
@@ -1171,8 +1027,8 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   sesionNombre: {
-    fontSize: 16,
-    fontWeight: '800',
+    fontSize: 18,
+    fontWeight: '900',
     color: COLORS.text,
     marginBottom: 12,
     letterSpacing: -0.3,
@@ -1182,6 +1038,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     flexWrap: 'wrap',
+    marginBottom: 10,
   },
   sesionStatItem: {
     flexDirection: 'row',
@@ -1196,12 +1053,17 @@ const styles = StyleSheet.create({
   sesionNivelBadge: {
     backgroundColor: COLORS.primary + '15',
     paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingVertical: 4,
     borderRadius: 8,
   },
   sesionNivelText: {
     fontSize: 11,
     fontWeight: '800',
     color: COLORS.primary,
+  },
+  sesionFecha: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    fontWeight: '600',
   },
 })

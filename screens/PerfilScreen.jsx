@@ -199,16 +199,6 @@ Al continuar usando la app, confirmas que has leído y aceptado estos términos.
               onPress={() => navigation.navigate('EditarPerfil')} 
             />
             <OptionItem 
-              icon="trending-up" 
-              text="Gestionar Nivel" 
-              onPress={showLevelOptions} 
-            />
-            <OptionItem 
-              icon="notifications" 
-              text="Notificaciones" 
-              onPress={() => Alert.alert('Pronto', 'Configuración de alertas')} 
-            />
-            <OptionItem 
               icon="info" 
               text="Acerca de la App / Términos" 
               onPress={showTermsAndConditions} 
@@ -229,8 +219,6 @@ Al continuar usando la app, confirmas que has leído y aceptado estos términos.
     </View>
   )
 }
-
-// --- ESTILOS MEJORADOS ---
 
 const styles = StyleSheet.create({
   container: {
