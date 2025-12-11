@@ -464,7 +464,7 @@ export default function RutinaDetalleScreen({ route, navigation }) {
           Animated.timing(scaleAnim, { toValue: 0.8, duration: 300, useNativeDriver: true }),
         ]).start(() => {
           setMostrarSuccess(false)
-          navigation.navigate('Rutinas')
+          navigation.goBack()
         })
       }, 3000)
 

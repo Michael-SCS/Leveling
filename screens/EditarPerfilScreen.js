@@ -137,6 +137,7 @@ export default function EditarPerfilScreen({ navigation, route }) {
     <TouchableOpacity
       style={[styles.quickOption, selected && styles.quickOptionSelected]}
       onPress={onPress}
+      activeOpacity={0.7}
     >
       <Text style={[styles.quickOptionText, selected && styles.quickOptionTextSelected]}>
         {value}
@@ -148,6 +149,7 @@ export default function EditarPerfilScreen({ navigation, route }) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={styles.loadingText}>Cargando...</Text>
       </View>
     )
   }
@@ -159,10 +161,11 @@ export default function EditarPerfilScreen({ navigation, route }) {
     >
       <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
       
+      {/* Header con gradiente */}
       <LinearGradient colors={[COLORS.primary, '#2A9D8F']} style={styles.header}>
         <View style={{ paddingTop: STATUS_BAR_HEIGHT }}>
           <View style={styles.headerContent}>
-            <TouchableOpacity onPress={handleCancel} style={styles.backButton}>
+            <TouchableOpacity onPress={handleCancel} style={styles.backButton} activeOpacity={0.7}>
               <MaterialIcons name="arrow-back" size={24} color={COLORS.white} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Editar Perfil</Text>
@@ -179,54 +182,70 @@ export default function EditarPerfilScreen({ navigation, route }) {
       >
         {/* Información Personal */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>👤 Información Personal</Text>
-          
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Nombre Completo *</Text>
-            <TextInput
-              style={styles.input}
-              value={nombreCompleto}
-              onChangeText={setNombreCompleto}
-              placeholder="Ej: Juan Pérez"
-              placeholderTextColor={COLORS.textSecondary + '80'}
-            />
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionIconContainer}>
+              <MaterialIcons name="person" size={20} color={COLORS.primary} />
+            </View>
+            <Text style={styles.sectionTitle}>Información Personal</Text>
           </View>
-
-          <View style={styles.row}>
-            <View style={[styles.inputContainer, { flex: 1, marginRight: 8 }]}>
-              <Text style={styles.label}>Edad (años)</Text>
+          
+          <View style={styles.card}>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Nombre Completo *</Text>
               <TextInput
                 style={styles.input}
-                value={edad}
-                onChangeText={setEdad}
-                placeholder="25"
-                keyboardType="numeric"
-                maxLength={2}
-                placeholderTextColor={COLORS.textSecondary + '80'}
+                value={nombreCompleto}
+                onChangeText={setNombreCompleto}
+                placeholder="Ej: Juan Pérez"
+                placeholderTextColor={COLORS.textSecondary + '60'}
               />
             </View>
 
-            <View style={[styles.inputContainer, { flex: 1, marginLeft: 8 }]}>
-              <Text style={styles.label}>Género</Text>
-              <View style={styles.genderButtons}>
-                <TouchableOpacity
-                  style={[styles.genderButton, genero === 'Masculino' && styles.genderButtonActive]}
-                  onPress={() => setGenero('Masculino')}
-                >
-                  <Text style={[styles.genderText, genero === 'Masculino' && styles.genderTextActive]}>M</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.genderButton, genero === 'Femenino' && styles.genderButtonActive]}
-                  onPress={() => setGenero('Femenino')}
-                >
-                  <Text style={[styles.genderText, genero === 'Femenino' && styles.genderTextActive]}>F</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.genderButton, genero === 'Prefiero no decirlo' && styles.genderButtonActive]}
-                  onPress={() => setGenero('Prefiero no decirlo')}
-                >
-                  <Text style={[styles.genderText, genero === 'Prefiero no decirlo' && styles.genderTextActive]}>N</Text>
-                </TouchableOpacity>
+            <View style={styles.row}>
+              <View style={[styles.inputContainer, { flex: 1, marginRight: 8 }]}>
+                <Text style={styles.label}>Edad</Text>
+                <TextInput
+                  style={styles.input}
+                  value={edad}
+                  onChangeText={setEdad}
+                  placeholder="25"
+                  keyboardType="numeric"
+                  maxLength={2}
+                  placeholderTextColor={COLORS.textSecondary + '60'}
+                />
+              </View>
+
+              <View style={[styles.inputContainer, { flex: 1, marginLeft: 8 }]}>
+                <Text style={styles.label}>Género</Text>
+                <View style={styles.genderButtons}>
+                  <TouchableOpacity
+                    style={[styles.genderButton, genero === 'Masculino' && styles.genderButtonActive]}
+                    onPress={() => setGenero('Masculino')}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.genderButtonText, genero === 'Masculino' && styles.genderButtonTextActive]}>
+                      M
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.genderButton, genero === 'Femenino' && styles.genderButtonActive]}
+                    onPress={() => setGenero('Femenino')}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.genderButtonText, genero === 'Femenino' && styles.genderButtonTextActive]}>
+                      F
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.genderButton, genero === 'Prefiero no decirlo' && styles.genderButtonActive]}
+                    onPress={() => setGenero('Prefiero no decirlo')}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.genderButtonText, genero === 'Prefiero no decirlo' && styles.genderButtonTextActive]}>
+                      N/A
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
           </View>
@@ -234,98 +253,148 @@ export default function EditarPerfilScreen({ navigation, route }) {
 
         {/* Métricas Físicas */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>📊 Métricas Físicas</Text>
-          
-          <View style={styles.row}>
-            <View style={[styles.inputContainer, { flex: 1, marginRight: 8 }]}>
-              <Text style={styles.label}>Peso (kg)</Text>
-              <TextInput
-                style={styles.input}
-                value={pesoActual}
-                onChangeText={setPesoActual}
-                placeholder="70"
-                keyboardType="decimal-pad"
-                placeholderTextColor={COLORS.textSecondary + '80'}
-              />
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionIconContainer}>
+              <MaterialIcons name="monitor-weight" size={20} color={COLORS.primary} />
             </View>
+            <Text style={styles.sectionTitle}>Métricas Físicas</Text>
+          </View>
+          
+          <View style={styles.card}>
+            <View style={styles.row}>
+              <View style={[styles.inputContainer, { flex: 1, marginRight: 8 }]}>
+                <Text style={styles.label}>Peso (kg)</Text>
+                <View style={styles.inputWithIcon}>
+                  <TextInput
+                    style={[styles.input, styles.inputWithIconText]}
+                    value={pesoActual}
+                    onChangeText={setPesoActual}
+                    placeholder="70"
+                    keyboardType="decimal-pad"
+                    placeholderTextColor={COLORS.textSecondary + '60'}
+                  />
+                  <View style={styles.inputIcon}>
+                    <MaterialIcons name="fitness-center" size={18} color={COLORS.textSecondary} />
+                  </View>
+                </View>
+              </View>
 
-            <View style={[styles.inputContainer, { flex: 1, marginLeft: 8 }]}>
-              <Text style={styles.label}>Altura (cm)</Text>
-              <TextInput
-                style={styles.input}
-                value={altura}
-                onChangeText={setAltura}
-                placeholder="175"
-                keyboardType="numeric"
-                placeholderTextColor={COLORS.textSecondary + '80'}
-              />
+              <View style={[styles.inputContainer, { flex: 1, marginLeft: 8 }]}>
+                <Text style={styles.label}>Altura (cm)</Text>
+                <View style={styles.inputWithIcon}>
+                  <TextInput
+                    style={[styles.input, styles.inputWithIconText]}
+                    value={altura}
+                    onChangeText={setAltura}
+                    placeholder="175"
+                    keyboardType="numeric"
+                    placeholderTextColor={COLORS.textSecondary + '60'}
+                  />
+                  <View style={styles.inputIcon}>
+                    <MaterialIcons name="height" size={18} color={COLORS.textSecondary} />
+                  </View>
+                </View>
+              </View>
             </View>
           </View>
         </View>
 
         {/* Objetivo */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>🎯 Objetivo de Entrenamiento</Text>
-          <View style={styles.quickOptionsRow}>
-            <QuickOption value="Bajar de peso" selected={objetivo === 'Bajar de peso'} onPress={() => setObjetivo('Bajar de peso')} />
-            <QuickOption value="Aumentar músculo" selected={objetivo === 'Aumentar músculo'} onPress={() => setObjetivo('Aumentar músculo')} />
-            <QuickOption value="Mantener estado físico" selected={objetivo === 'Mantener estado físico'} onPress={() => setObjetivo('Mantener estado físico')} />
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionIconContainer}>
+              <MaterialIcons name="flag" size={20} color={COLORS.primary} />
+            </View>
+            <Text style={styles.sectionTitle}>Objetivo de Entrenamiento</Text>
           </View>
-          <TextInput
-            style={[styles.input, { marginTop: 10 }]}
-            value={objetivo}
-            onChangeText={setObjetivo}
-            placeholder="O escribe tu objetivo personalizado"
-            placeholderTextColor={COLORS.textSecondary + '80'}
-          />
+          
+          <View style={styles.card}>
+            <View style={styles.quickOptionsContainer}>
+              <QuickOption 
+                value="Bajar de peso" 
+                selected={objetivo === 'Bajar de peso'} 
+                onPress={() => setObjetivo('Bajar de peso')} 
+              />
+              <QuickOption 
+                value="Aumentar músculo" 
+                selected={objetivo === 'Aumentar músculo'} 
+                onPress={() => setObjetivo('Aumentar músculo')} 
+              />
+              <QuickOption 
+                value="Mantener estado físico" 
+                selected={objetivo === 'Mantener estado físico'} 
+                onPress={() => setObjetivo('Mantener estado físico')} 
+              />
+            </View>
+          </View>
         </View>
 
         {/* Lugar de Entrenamiento */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>📍 Lugar de Entrenamiento</Text>
-          <View style={styles.quickOptionsRow}>
-            <QuickOption value="Casa" selected={lugarEntrenamiento === 'Casa'} onPress={() => setLugarEntrenamiento('Casa')} />
-            <QuickOption value="Gimnasio" selected={lugarEntrenamiento === 'Gimnasio'} onPress={() => setLugarEntrenamiento('Gimnasio')} />
-            <QuickOption value="Parque" selected={lugarEntrenamiento === 'Parque'} onPress={() => setLugarEntrenamiento('Parque')} />
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionIconContainer}>
+              <MaterialIcons name="location-on" size={20} color={COLORS.primary} />
+            </View>
+            <Text style={styles.sectionTitle}>Lugar de Entrenamiento</Text>
           </View>
-          <TextInput
-            style={[styles.input, { marginTop: 10 }]}
-            value={lugarEntrenamiento}
-            onChangeText={setLugarEntrenamiento}
-            placeholder="O especifica otro lugar"
-            placeholderTextColor={COLORS.textSecondary + '80'}
-          />
+          
+          <View style={styles.card}>
+            <View style={styles.quickOptionsContainer}>
+              <QuickOption 
+                value="Casa" 
+                selected={lugarEntrenamiento === 'Casa'} 
+                onPress={() => setLugarEntrenamiento('Casa')} 
+              />
+              <QuickOption 
+                value="Gimnasio" 
+                selected={lugarEntrenamiento === 'Gimnasio'} 
+                onPress={() => setLugarEntrenamiento('Gimnasio')} 
+              />
+              <QuickOption 
+                value="Parque" 
+                selected={lugarEntrenamiento === 'Parque'} 
+                onPress={() => setLugarEntrenamiento('Parque')} 
+              />
+            </View>
+          </View>
         </View>
 
         {/* Frecuencia */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>📅 Frecuencia y Duración</Text>
-          
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Días por semana</Text>
-            <View style={styles.quickOptionsRow}>
-              {[3, 4, 5, 6, 7].map(day => (
-                <QuickOption
-                  key={day}
-                  value={day.toString()}
-                  selected={diasSemana === day.toString()}
-                  onPress={() => setDiasSemana(day.toString())}
-                />
-              ))}
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionIconContainer}>
+              <MaterialIcons name="calendar-today" size={20} color={COLORS.primary} />
             </View>
+            <Text style={styles.sectionTitle}>Frecuencia y Duración</Text>
           </View>
+          
+          <View style={styles.card}>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Días por semana</Text>
+              <View style={styles.quickOptionsContainer}>
+                {[3, 4, 5, 6, 7].map(day => (
+                  <QuickOption
+                    key={day}
+                    value={day.toString()}
+                    selected={diasSemana === day.toString()}
+                    onPress={() => setDiasSemana(day.toString())}
+                  />
+                ))}
+              </View>
+            </View>
 
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Duración por sesión (minutos)</Text>
-            <View style={styles.quickOptionsRow}>
-              {[30, 45, 60, 90].map(time => (
-                <QuickOption
-                  key={time}
-                  value={time.toString()}
-                  selected={tiempoSesion === time.toString()}
-                  onPress={() => setTiempoSesion(time.toString())}
-                />
-              ))}
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Duración por sesión (minutos)</Text>
+              <View style={styles.quickOptionsContainer}>
+                {[30, 45, 60, 90].map(time => (
+                  <QuickOption
+                    key={time}
+                    value={time.toString()}
+                    selected={tiempoSesion === time.toString()}
+                    onPress={() => setTiempoSesion(time.toString())}
+                  />
+                ))}
+              </View>
             </View>
           </View>
         </View>
@@ -336,18 +405,26 @@ export default function EditarPerfilScreen({ navigation, route }) {
             style={[styles.saveButton, saving && styles.saveButtonDisabled]}
             onPress={handleSave}
             disabled={saving}
+            activeOpacity={0.8}
           >
             {saving ? (
-              <ActivityIndicator color={COLORS.white} />
+              <ActivityIndicator color={COLORS.white} size="small" />
             ) : (
               <>
-                <MaterialIcons name="check" size={20} color={COLORS.white} />
+                <View style={styles.saveButtonIcon}>
+                  <MaterialIcons name="check" size={22} color={COLORS.white} />
+                </View>
                 <Text style={styles.saveButtonText}>Guardar Cambios</Text>
               </>
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
+          <TouchableOpacity 
+            style={styles.cancelButton} 
+            onPress={handleCancel}
+            activeOpacity={0.7}
+          >
+            <MaterialIcons name="close" size={20} color={COLORS.text} />
             <Text style={styles.cancelButtonText}>Cancelar</Text>
           </TouchableOpacity>
         </View>
@@ -367,9 +444,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: COLORS.background,
   },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 15,
+    color: COLORS.textSecondary,
+    fontWeight: '600',
+  },
   header: {
     paddingHorizontal: 20,
     paddingBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   headerContent: {
     flexDirection: 'row',
@@ -382,11 +470,14 @@ const styles = StyleSheet.create({
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.15)',
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: '900',
     color: COLORS.white,
+    letterSpacing: 0.5,
   },
   scrollView: {
     flex: 1,
@@ -398,29 +489,74 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: 24,
   },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: COLORS.text,
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 12,
+  },
+  sectionIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: COLORS.primary + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  sectionTitle: {
+    fontSize: 17,
+    fontWeight: '900',
+    color: COLORS.text,
+    letterSpacing: 0.3,
+  },
+  card: {
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   inputContainer: {
     marginBottom: 16,
   },
   label: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
     color: COLORS.textSecondary,
-    marginBottom: 6,
+    marginBottom: 8,
+    letterSpacing: 0.3,
   },
   input: {
-    backgroundColor: COLORS.card,
+    backgroundColor: COLORS.background,
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 12,
     padding: 14,
     fontSize: 15,
     color: COLORS.text,
+    fontWeight: '600',
+  },
+  inputWithIcon: {
+    position: 'relative',
+  },
+  inputWithIconText: {
+    paddingRight: 45,
+  },
+  inputIcon: {
+    position: 'absolute',
+    right: 14,
+    top: 14,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: COLORS.card,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   row: {
     flexDirection: 'row',
@@ -431,35 +567,37 @@ const styles = StyleSheet.create({
   },
   genderButton: {
     flex: 1,
-    backgroundColor: COLORS.card,
+    backgroundColor: COLORS.background,
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   genderButtonActive: {
     backgroundColor: COLORS.primary,
     borderColor: COLORS.primary,
   },
-  genderText: {
-    fontSize: 15,
-    fontWeight: '600',
+  genderButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
     color: COLORS.textSecondary,
+    letterSpacing: 0.3,
   },
-  genderTextActive: {
+  genderButtonTextActive: {
     color: COLORS.white,
   },
-  quickOptionsRow: {
+  quickOptionsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
   quickOption: {
-    backgroundColor: COLORS.card,
+    backgroundColor: COLORS.background,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 10,
+    borderRadius: 12,
     paddingVertical: 10,
     paddingHorizontal: 16,
   },
@@ -469,44 +607,63 @@ const styles = StyleSheet.create({
   },
   quickOptionText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
     color: COLORS.textSecondary,
+    letterSpacing: 0.2,
   },
   quickOptionTextSelected: {
     color: COLORS.white,
   },
   actionsContainer: {
     marginTop: 10,
+    gap: 12,
   },
   saveButton: {
     backgroundColor: COLORS.primary,
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   saveButtonDisabled: {
     opacity: 0.6,
   },
+  saveButtonIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
   saveButtonText: {
     color: COLORS.white,
     fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: 8,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
   cancelButton: {
     backgroundColor: COLORS.card,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
   },
   cancelButtonText: {
     color: COLORS.text,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
 })

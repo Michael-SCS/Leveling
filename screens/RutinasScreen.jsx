@@ -283,7 +283,7 @@ export default function RutinasScreen({ navigation }) {
                     contentFit="cover"
                   />
                   <LinearGradient
-                    colors={['transparent', 'rgba(0,0,0,0.9)']}
+                    colors={['transparent', 'rgba(0,0,0,0.7)']}
                     style={styles.imageGradient}
                   />
                   
@@ -298,55 +298,37 @@ export default function RutinasScreen({ navigation }) {
 
                 {/* Contenido */}
                 <View style={styles.rutinaContent}>
-                  <Text style={styles.rutinaNombre} numberOfLines={2}>
-                    {rutina.nombre}
-                  </Text>
-
-                  {rutina.descripcion && (
-                    <Text style={styles.rutinaDescripcion} numberOfLines={2}>
-                      {rutina.descripcion}
+                  <View>
+                    <Text style={styles.rutinaNombre} numberOfLines={3}>
+                      {rutina.nombre}
                     </Text>
-                  )}
 
-                  {/* Meta Info */}
-                  <View style={styles.rutinaMetaContainer}>
-                    <View style={styles.metaItem}>
-                      <MaterialIcons name="schedule" size={16} color={COLORS.primary} />
-                      <Text style={styles.metaText}>{rutina.duracion_minutos} min</Text>
+                    {/* Meta Info */}
+                    <View style={styles.rutinaMetaContainer}>
+                      <View style={styles.metaItem}>
+                        <MaterialIcons name="schedule" size={14} color={COLORS.primary} />
+                        <Text style={styles.metaText}>{rutina.duracion_minutos} min</Text>
+                      </View>
+
+                      <View style={styles.metaDivider} />
+
+                      <View style={styles.metaItem}>
+                        <MaterialIcons 
+                          name={rutina.equipo ? 'fitness-center' : 'person'} 
+                          size={14} 
+                          color={COLORS.primary} 
+                        />
+                        <Text style={styles.metaText}>
+                          {rutina.equipo ? 'Con equipo' : 'Sin equipo'}
+                        </Text>
+                      </View>
                     </View>
-
-                    <View style={styles.metaDivider} />
-
-                    <View style={styles.metaItem}>
-                      <MaterialIcons 
-                        name={rutina.equipo ? 'fitness-center' : 'person'} 
-                        size={16} 
-                        color={COLORS.primary} 
-                      />
-                      <Text style={styles.metaText}>
-                        {rutina.equipo ? 'Con equipo' : 'Sin equipo'}
-                      </Text>
-                    </View>
-
-                    {rutina.lugar && (
-                      <>
-                        <View style={styles.metaDivider} />
-                        <View style={styles.metaItem}>
-                          <MaterialIcons 
-                            name={rutina.lugar === 'Casa' ? 'home' : 'fitness-center'} 
-                            size={16} 
-                            color={COLORS.primary} 
-                          />
-                          <Text style={styles.metaText}>{rutina.lugar}</Text>
-                        </View>
-                      </>
-                    )}
                   </View>
 
                   {/* Botón Ver Detalles */}
                   <View style={styles.verDetallesButton}>
                     <Text style={styles.verDetallesText}>Ver ejercicios</Text>
-                    <MaterialIcons name="arrow-forward" size={25} color={'white'} />
+                    <MaterialIcons name="arrow-forward" size={16} color={'white'} />
                   </View>
                 </View>
               </TouchableOpacity>
@@ -468,25 +450,28 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   rutinasContainer: {
-    gap: 16,
+    gap: 12,
   },
   rutinaCardWrapper: {
-    marginBottom: 4,
+    marginBottom: 0,
   },
   rutinaCard: {
     backgroundColor: COLORS.card,
-    borderRadius:20,
+    borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 1,
+    borderColor: COLORS.border + '40',
     elevation: 6,
-    shadowColor: '#ffffffff',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
+    flexDirection: 'row',
+    height: 140,
   },
   rutinaImageContainer: {
-    width: '100%',
-    height: 200,
+    width: 120,
+    height: '100%',
     position: 'relative',
   },
   rutinaImage: {
@@ -498,15 +483,15 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 100,
+    height: '100%',
   },
   nivelBadge: {
     position: 'absolute',
-    top: 16,
-    right: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 12,
+    top: 8,
+    left: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
     elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -515,63 +500,65 @@ const styles = StyleSheet.create({
   },
   nivelBadgeText: {
     color: COLORS.white,
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '900',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
   rutinaContent: {
-    padding: 20,
+    flex: 1,
+    padding: 14,
+    justifyContent: 'space-between',
   },
   rutinaNombre: {
-    fontSize: 20,
-    textAlign: 'center',
+    fontSize: 16,
     fontWeight: '900',
     color: COLORS.text,
     marginBottom: 8,
-    letterSpacing: -0.3,
-    lineHeight: 28,
   },
   rutinaDescripcion: {
-    fontSize: 12,
+    fontSize: 11,
     color: COLORS.textSecondary,
-    marginBottom: 16,
-    lineHeight: 20,
-    textAlign: 'justify'
+    marginBottom: 8,
+    lineHeight: 15,
   },
   rutinaMetaContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 0,
     flexWrap: 'wrap',
   },
   metaItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
   },
   metaText: {
-    fontSize: 13,
+    fontSize: 11,
     color: COLORS.text,
     fontWeight: '600',
   },
   metaDivider: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
     backgroundColor: COLORS.textSecondary + '40',
-    marginHorizontal: 12,
+    marginHorizontal: 8,
   },
   verDetallesButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 6,
     backgroundColor: COLORS.primary,
-    paddingVertical: 14,
-    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
     borderWidth: 2,
+    borderColor: COLORS.primary,
+    alignSelf: 'flex-start',
   },
   verDetallesText: {
-    fontSize: 15,
+    fontSize: 12,
     fontWeight: '800',
     color: 'white',
     letterSpacing: 0.3,

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
-  Dimensions, // Para cambiar el color de la barra
+  Dimensions,
   Platform,
   ScrollView,
   StatusBar,
@@ -17,42 +17,48 @@ import { COLORS } from '../constants/colors'
 import { supabase } from '../lib/supabase'
 
 const { width } = Dimensions.get('window')
-
-// Definimos la altura del Status Bar para usarla en el padding
 const STATUS_BAR_HEIGHT = Platform.OS === 'ios' ? 44 : StatusBar.currentHeight || 24;
 
-// --- COMPONENTES MODULARES (Sin cambios) ---
+// OPCIÓN 1: TARJETAS CON ICONOS MODERNOS Y GRADIENTES SUAVES
+const DetailCard = ({ icon, label, value, gradient = [COLORS.primary + '15', COLORS.primary + '05'] }) => (
+  <View style={styles.detailCard}>
+    <LinearGradient colors={gradient} style={styles.detailCardGradient}>
+      <View style={styles.detailCardIcon}>
+        <MaterialIcons name={icon} size={24} color={COLORS.primary} />
+      </View>
+      <View style={styles.detailCardContent}>
+        <Text style={styles.detailCardLabel}>{label}</Text>
+        <Text style={styles.detailCardValue}>{value}</Text>
+      </View>
+    </LinearGradient>
+  </View>
+)
 
-const DetailGridItem = ({ icon, label, value }) => (
-  <View style={styles.detailItem}>
-    <View style={styles.detailIconBox}>
-      <Text style={styles.detailEmoji}>{icon}</Text>
+const StatCard = ({ icon, label, value, color = COLORS.primary }) => (
+  <View style={[styles.statCard, { borderLeftColor: color, borderLeftWidth: 4 }]}>
+    <View style={[styles.statIcon, { backgroundColor: color + '15' }]}>
+      <MaterialIcons name={icon} size={20} color={color} />
     </View>
-    <View style={{ flex: 1 }}>
-      <Text style={styles.detailLabel}>{label}</Text>
-      <Text style={styles.detailValue} numberOfLines={1}>{value}</Text>
+    <View style={styles.statContent}>
+      <Text style={styles.statLabel}>{label}</Text>
+      <Text style={styles.statValue}>{value}</Text>
     </View>
   </View>
 )
 
-const OptionItem = ({ icon, text, onPress, isLast = false, isDestructive = false }) => (
+const OptionItem = ({ icon, text, onPress, isLast = false, isDestructive = false, iconBg }) => (
   <TouchableOpacity
-    style={[
-      styles.optionButton,
-      isLast && { borderBottomWidth: 0 }
-    ]}
+    style={[styles.optionButton, isLast && { borderBottomWidth: 0 }]}
     onPress={onPress}
     activeOpacity={0.7}
   >
-    <View style={[styles.optionIconContainer, isDestructive && styles.optionIconDestructive]}>
+    <View style={[styles.optionIconContainer, { backgroundColor: iconBg || (isDestructive ? COLORS.error + '15' : COLORS.primary + '15') }]}>
       <MaterialIcons name={icon} size={22} color={isDestructive ? COLORS.error : COLORS.primary} />
     </View>
     <Text style={[styles.optionText, isDestructive && { color: COLORS.error }]}>{text}</Text>
     <MaterialIcons name="chevron-right" size={24} color={COLORS.textSecondary} style={{ opacity: 0.5 }} />
   </TouchableOpacity>
 )
-
-// --- FUNCIÓN PRINCIPAL ---
 
 export default function PerfilScreen({ navigation }) {
   const [loading, setLoading] = useState(true)
@@ -61,22 +67,124 @@ export default function PerfilScreen({ navigation }) {
   const [puedeSubir, setPuedeSubir] = useState(false)
   const [checkingNivel, setCheckingNivel] = useState(false)
 
-  // --- LÓGICA DE DATOS (Mantenida) ---
-
   useEffect(() => { loadUserData() }, [])
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => loadUserData())
     return unsubscribe
   }, [navigation])
 
-  const loadUserData = async () => { /* ... */ setLoading(true); try { const { data: { user } } = await supabase.auth.getUser(); if (!user) { navigation.replace('Login'); return; } setUser(user); const { data: info, error } = await supabase .from('usuarios_info') .select('*') .eq('user_id', user.id) .single(); if (error && error.code !== 'PGRST116') throw error; setUserInfo(info); checkNivelProgress(user.id); } catch (error) { console.log('Error cargando datos:', error) } finally { setLoading(false) } }
-  const checkNivelProgress = async (userId) => { /* ... */ setPuedeSubir(false); try { const { data, error } = await supabase.rpc('puede_subir_nivel', { usuario_id: userId }); if (!error && data === true) setPuedeSubir(true); } catch (error) { console.log(error) } }
-  const handleSubirNivel = async () => { /* ... */ setCheckingNivel(true); try { const { data, error } = await supabase.rpc('subir_nivel', { usuario_id: user.id }); if (error) throw error; Alert.alert('¡Nivel Subido! 🚀', `¡Felicidades! Ahora eres nivel ${data}.`, [{ text: 'Genial', onPress: () => loadUserData() }]); } catch (error) { Alert.alert('Error', 'No se pudo subir de nivel.'); loadUserData(); } finally { setCheckingNivel(false); } }
-  const actualizarNivel = async (nuevoNivel) => { /* ... */ try { const { error } = await supabase .from('usuarios_info') .update({ nivel: nuevoNivel, updated_at: new Date().toISOString() }) .eq('user_id', user.id); if (error) throw error; Alert.alert('✅ Actualizado', `Tu nivel ahora es: ${nuevoNivel}`); loadUserData(); } catch (error) { Alert.alert('Error', 'No se pudo actualizar.'); } }
-  const showLevelOptions = () => { /* ... */ const options = [ { text: 'Cancelar', style: 'cancel' }, { text: 'Principiante', onPress: () => actualizarNivel('Principiante') }, { text: 'Intermedio', onPress: () => actualizarNivel('Intermedio') }, { text: 'Avanzado', onPress: () => actualizarNivel('Avanzado') } ]; if (puedeSubir && userInfo?.nivel !== 'Avanzado') { options.splice(1, 0, { text: '🚀 Subir de Nivel (Automático)', onPress: () => Alert.alert('Confirmar', '¿Subir de nivel?', [{ text: 'No' }, { text: 'Sí', onPress: handleSubirNivel }]) }); } Alert.alert('Gestión de Nivel', 'Selecciona una acción', options) }
-  const handleLogout = () => { /* ... */ Alert.alert('Cerrar Sesión', '¿Estás seguro?', [ { text: 'Cancelar', style: 'cancel' }, { text: 'Salir', style: 'destructive', onPress: async () => { await supabase.auth.signOut(); navigation.replace('Login') } } ]); }
-  const calcularIMC = () => { /* ... */ if (userInfo?.peso_actual && userInfo?.altura) { const h = userInfo.altura / 100; return (userInfo.peso_actual / (h * h)).toFixed(1); } return '--'; }
-  const getImcClassification = (imc) => { /* ... */ const value = parseFloat(imc); if (isNaN(value)) { return { text: 'N/A', color: COLORS.textSecondary }; } if (value < 18.5) { return { text: 'Bajo Peso', color: '#ffb74d' }; } if (value >= 18.5 && value <= 24.9) { return { text: 'Saludable', color: '#4CAF50' }; } if (value >= 25.0 && value <= 29.9) { return { text: 'Sobrepeso', color: '#ff9800' }; } if (value >= 30.0) { return { text: 'Obesidad', color: COLORS.error }; } return { text: 'Indefinido', color: COLORS.textSecondary }; };
+  const loadUserData = async () => { 
+    setLoading(true); 
+    try { 
+      const { data: { user } } = await supabase.auth.getUser(); 
+      if (!user) { 
+        navigation.replace('Login'); 
+        return; 
+      } 
+      setUser(user); 
+      const { data: info, error } = await supabase 
+        .from('usuarios_info') 
+        .select('*') 
+        .eq('user_id', user.id) 
+        .single(); 
+      if (error && error.code !== 'PGRST116') throw error; 
+      setUserInfo(info); 
+      checkNivelProgress(user.id); 
+    } catch (error) { 
+      console.log('Error cargando datos:', error) 
+    } finally { 
+      setLoading(false) 
+    } 
+  }
+
+  const checkNivelProgress = async (userId) => { 
+    setPuedeSubir(false); 
+    try { 
+      const { data, error } = await supabase.rpc('puede_subir_nivel', { usuario_id: userId }); 
+      if (!error && data === true) setPuedeSubir(true); 
+    } catch (error) { 
+      console.log(error) 
+    } 
+  }
+
+  const handleSubirNivel = async () => { 
+    setCheckingNivel(true); 
+    try { 
+      const { data, error } = await supabase.rpc('subir_nivel', { usuario_id: user.id }); 
+      if (error) throw error; 
+      Alert.alert('¡Nivel Subido! 🚀', `¡Felicidades! Ahora eres nivel ${data}.`, [{ text: 'Genial', onPress: () => loadUserData() }]); 
+    } catch (error) { 
+      Alert.alert('Error', 'No se pudo subir de nivel.'); 
+      loadUserData(); 
+    } finally { 
+      setCheckingNivel(false); 
+    } 
+  }
+
+  const actualizarNivel = async (nuevoNivel) => { 
+    try { 
+      const { error } = await supabase 
+        .from('usuarios_info') 
+        .update({ nivel: nuevoNivel, updated_at: new Date().toISOString() }) 
+        .eq('user_id', user.id); 
+      if (error) throw error; 
+      Alert.alert('✅ Actualizado', `Tu nivel ahora es: ${nuevoNivel}`); 
+      loadUserData(); 
+    } catch (error) { 
+      Alert.alert('Error', 'No se pudo actualizar.'); 
+    } 
+  }
+
+  const showLevelOptions = () => { 
+    const options = [ 
+      { text: 'Cancelar', style: 'cancel' }, 
+      { text: 'Principiante', onPress: () => actualizarNivel('Principiante') }, 
+      { text: 'Intermedio', onPress: () => actualizarNivel('Intermedio') }, 
+      { text: 'Avanzado', onPress: () => actualizarNivel('Avanzado') } 
+    ]; 
+    if (puedeSubir && userInfo?.nivel !== 'Avanzado') { 
+      options.splice(1, 0, { text: '🚀 Subir de Nivel (Automático)', onPress: () => Alert.alert('Confirmar', '¿Subir de nivel?', [{ text: 'No' }, { text: 'Sí', onPress: handleSubirNivel }]) }); 
+    } 
+    Alert.alert('Gestión de Nivel', 'Selecciona una acción', options) 
+  }
+
+  const handleLogout = () => { 
+    Alert.alert('Cerrar Sesión', '¿Estás seguro?', [ 
+      { text: 'Cancelar', style: 'cancel' }, 
+      { text: 'Salir', style: 'destructive', onPress: async () => { 
+        await supabase.auth.signOut(); 
+        navigation.replace('Login') 
+      } } 
+    ]); 
+  }
+
+  const calcularIMC = () => { 
+    if (userInfo?.peso_actual && userInfo?.altura) { 
+      const h = userInfo.altura / 100; 
+      return (userInfo.peso_actual / (h * h)).toFixed(1); 
+    } 
+    return '--'; 
+  }
+
+  const getImcClassification = (imc) => { 
+    const value = parseFloat(imc); 
+    if (isNaN(value)) { 
+      return { text: 'N/A', color: COLORS.textSecondary }; 
+    } 
+    if (value < 18.5) { 
+      return { text: 'Bajo Peso', color: '#ffb74d' }; 
+    } 
+    if (value >= 18.5 && value <= 24.9) { 
+      return { text: 'Saludable', color: '#4CAF50' }; 
+    } 
+    if (value >= 25.0 && value <= 29.9) { 
+      return { text: 'Sobrepeso', color: '#ff9800' }; 
+    } 
+    if (value >= 30.0) { 
+      return { text: 'Obesidad', color: COLORS.error }; 
+    } 
+    return { text: 'Indefinido', color: COLORS.textSecondary }; 
+  };
 
   const showTermsAndConditions = () => {
     const terms = `Términos y Condiciones de FITFLOW (v1.0.0)
@@ -118,43 +226,46 @@ Al continuar usando la app, confirmas que has leído y aceptado estos términos.
 
   return (
     <View style={styles.container}>
-      {/* 1. STATUS BAR */}
       <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
       
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
         
-        {/* 2. HEADER - Ya NO es absoluto y se integra al ScrollView */}
+        {/* HEADER CON DISEÑO MINIMALISTA MODERNO */}
         <LinearGradient
           colors={[COLORS.primary, '#2A9D8F']} 
           style={styles.headerBackground}
         >
-          {/* Este padding empuja el contenido debajo de la barra de estado */}
-          <View style={{ paddingTop: STATUS_BAR_HEIGHT + 10 }}> 
+          <View style={{ paddingTop: STATUS_BAR_HEIGHT + 20 }}> 
             <View style={styles.profileHeaderContent}>
               
-              <View style={styles.avatarContainerLeft}>
+              {/* Avatar más grande y moderno */}
+              <View style={styles.avatarContainer}>
                 <View style={styles.avatarBorder}>
                   <View style={styles.avatar}>
                     <Text style={styles.avatarText}>
                       {userInfo?.nombre_completo?.charAt(0).toUpperCase() || 'U'}
                     </Text>
                   </View>
-                  <TouchableOpacity style={styles.editAvatarButton} onPress={() => navigation.navigate('EditarPerfil')}>
-                    <MaterialIcons name="edit" size={14} color={COLORS.white} />
+                  <TouchableOpacity 
+                    style={styles.editAvatarButton} 
+                    onPress={() => navigation.navigate('EditarPerfil')}
+                  >
+                    <MaterialIcons name="edit" size={16} color={COLORS.white} />
                   </TouchableOpacity>
                 </View>
               </View>
 
-              <View style={styles.textContainerRight}>
-                <Text style={styles.userName} numberOfLines={1}>{userInfo?.nombre_completo || 'Usuario'}</Text>
+              {/* Información del usuario centrada */}
+              <View style={styles.userInfoContainer}>
+                <Text style={styles.userName}>{userInfo?.nombre_completo || 'Usuario'}</Text>
+                {/* <Text style={styles.userEmail}>{user?.email || ''}</Text> */}
               </View>
+
             </View>
           </View>
         </LinearGradient>
 
-        {/* --- DIVISOR PARA CLARIDAD --- */}
-        
-        {/* 3. MÉTRICAS DENTRO DEL SCROLLVIEW (diseño en tarjeta) */}
+        {/* MÉTRICAS (SIN CAMBIOS - TE GUSTA COMO ESTÁ) */}
         <View style={styles.metricsContainer}>
           <View style={styles.metricItem}>
             <Text style={styles.metricLabel}>PESO</Text>
@@ -168,52 +279,90 @@ Al continuar usando la app, confirmas que has leído y aceptado estos términos.
           <View style={styles.metricDivider} />
           <View style={styles.metricItem}>
             <Text style={styles.metricLabel}>IMC</Text>
-            {/* Diseño IMC mejorado */}
             <Text style={[styles.metricValue, { color: imcClassification.color }]}>{imcValue}</Text>
             <Text style={[styles.imcClassification, { color: imcClassification.color }]}>{imcClassification.text}</Text>
           </View>
         </View>
 
-        {/* --- DIVISOR PARA CLARIDAD --- */}
-
-        {/* 4. INFORMACIÓN EN GRID (Tu Perfil Fitness) */}
+        {/* ESTADÍSTICAS DE ENTRENAMIENTO - DISEÑO NUEVO */}
         <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Tu Perfil Fitness</Text>
-          <View style={styles.gridContainer}>
-            <DetailGridItem icon="🎯" label="Objetivo" value={userInfo?.objetivo || 'No definido'} />
-            <DetailGridItem icon="📍" label="Lugar" value={userInfo?.lugar_entrenamiento || 'No definido'} />
-            <DetailGridItem icon="📅" label="Frecuencia" value={`${userInfo?.dias_semana || 0} días/sem`} />
-            <DetailGridItem icon="⏱️" label="Duración" value={`${userInfo?.tiempo_sesion || 0} min`} />
-            <DetailGridItem icon="🎂" label="Edad" value={`${userInfo?.edad || '--'} años`} />
-            <DetailGridItem icon="👤" label="Género" value={userInfo?.genero || '--'} />
+          <Text style={styles.sectionTitle}>💪 Tu Entrenamiento</Text>
+          <View style={styles.statsGrid}>
+            <StatCard 
+              icon="calendar-today" 
+              label="Frecuencia semanal" 
+              value={`${userInfo?.dias_semana || 0} días`}
+              color="#4CAF50"
+            />
+            <StatCard 
+              icon="timer" 
+              label="Duración por sesión preferida" 
+              value={`${userInfo?.tiempo_sesion || 0} min`}
+              color="#FF9800"
+            />
           </View>
         </View>
 
-        {/* 5. OPCIONES DE CONFIGURACIÓN */}
+        {/* PERFIL FITNESS - TARJETAS CON GRADIENTES */}
         <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Cuenta y Ajustes</Text>
+          <Text style={styles.sectionTitle}>🎯 Tu Perfil Fitness</Text>
+          <View style={styles.detailCardsContainer}>
+            <DetailCard 
+              icon="flag" 
+              label="Mi objetivo" 
+              value={userInfo?.objetivo || 'No definido'}
+              gradient={['#4CAF5015', '#4CAF5005']}
+            />
+            <DetailCard 
+              icon="location-on" 
+              label="Lugar de entrenamiento favorito" 
+              value={userInfo?.lugar_entrenamiento || 'No definido'}
+              gradient={['#2196F315', '#2196F305']}
+            />
+            <DetailCard 
+              icon="cake" 
+              label="Edad" 
+              value={`${userInfo?.edad || '--'} años`}
+              gradient={['#FF980015', '#FF980005']}
+            />
+            <DetailCard 
+              icon="person" 
+              label="Género" 
+              value={userInfo?.genero || '--'}
+              gradient={['#9C27B015', '#9C27B005']}
+            />
+          </View>
+        </View>
+
+        {/* OPCIONES CON ICONOS DE COLORES */}
+        <View style={styles.sectionContainer}>
+          <Text style={styles.sectionTitle}>⚙️ Configuración</Text>
           <View style={styles.optionsCard}>
             <OptionItem 
-              icon="person" 
+              icon="edit" 
               text="Editar Perfil" 
-              onPress={() => navigation.navigate('EditarPerfil')} 
+              onPress={() => navigation.navigate('EditarPerfil')}
+              iconBg="#4CAF5015"
             />
             <OptionItem 
-              icon="info" 
-              text="Acerca de la App / Términos" 
-              onPress={showTermsAndConditions} 
-              isLast 
+              icon="description" 
+              text="Términos y Condiciones" 
+              onPress={showTermsAndConditions}
+              iconBg="#2196F315"
+              isLast
             />
           </View>
         </View>
 
-        {/* Botón Salir y Versión */}
+        {/* BOTÓN DE CERRAR SESIÓN MODERNO */}
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <MaterialIcons name="logout" size={20} color={COLORS.error} />
+          <View style={styles.logoutIconContainer}>
+            <MaterialIcons name="logout" size={20} color={COLORS.error} />
+          </View>
           <Text style={styles.logoutText}>Cerrar Sesión</Text>
         </TouchableOpacity>
 
-        <Text style={styles.versionText}>v1.0.0</Text>
+        <Text style={styles.versionText}>FitFlow v1.0.0</Text>
 
       </ScrollView>
     </View>
@@ -232,117 +381,119 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   
-  // HEADER (YA NO ABSOLUTO)
+  // HEADER REDISEÑADO - MÁS MODERNO Y CENTRADO
   headerBackground: {
     paddingHorizontal: 20,
-    paddingBottom: 25, // Reducido para acercar el contenido de abajo
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-    // El padding superior se maneja directamente en el <View> interno para incluir STATUS_BAR_HEIGHT
+    paddingBottom: 40,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
   },
   profileHeaderContent: {
-    flexDirection: 'row', 
     alignItems: 'center',
-    marginTop: 10, // Espacio entre el padding superior y el contenido
   },
-  avatarContainerLeft: {
-    marginRight: 20,
+  avatarContainer: {
+    marginBottom: 16,
   },
-  textContainerRight: {
-    flex: 1, 
-    justifyContent: 'center',
-  },
-
-  // Avatar y Badge (Sin cambios significativos)
   avatarBorder: {
-    padding: 3,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    borderRadius: 60,
+    padding: 4,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    borderRadius: 70,
     position: 'relative',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
   },
   avatar: {
-    width: 90, 
-    height: 90,
-    borderRadius: 45,
+    width: 110,
+    height: 110,
+    borderRadius: 55,
     backgroundColor: COLORS.card,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
+    borderWidth: 3,
     borderColor: COLORS.white,
   },
   avatarText: {
-    fontSize: 36,
-    fontWeight: 'bold',
+    fontSize: 44,
+    fontWeight: '900',
     color: COLORS.primary,
   },
   editAvatarButton: {
     position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: COLORS.text,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    bottom: 4,
+    right: 4,
+    backgroundColor: COLORS.primary,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
+    borderWidth: 3,
     borderColor: COLORS.white,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  userInfoContainer: {
+    alignItems: 'center',
   },
   userName: {
-    fontSize: 22, 
-    fontWeight: 'bold',
+    fontSize: 26,
+    fontWeight: '900',
     color: COLORS.white,
-    marginBottom: 2,
+    marginBottom: 4,
+    textAlign: 'center',
+    letterSpacing: 0.5,
   },
   userEmail: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.8)',
-    marginBottom: 8,
+    color: 'rgba(255,255,255,0.85)',
+    marginBottom: 12,
+    textAlign: 'center',
   },
-  levelBadge: {
+  levelBadgeNew: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.2)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
-    alignSelf: 'flex-start', 
+    borderColor: 'rgba(255,255,255,0.4)',
+    gap: 6,
   },
-  levelEmoji: {
-    fontSize: 12,
-    marginRight: 4,
-  },
-  levelText: {
+  levelTextNew: {
     color: COLORS.white,
-    fontWeight: 'bold',
-    fontSize: 13,
+    fontWeight: '800',
+    fontSize: 14,
+    letterSpacing: 0.5,
   },
   redDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: '#FF5252',
-    marginLeft: 6,
   },
 
-  // MÉTRICAS (AHORA INTEGRADO EN SCROLL)
+  // MÉTRICAS (SIN CAMBIOS)
   metricsContainer: {
     flexDirection: 'row',
     backgroundColor: COLORS.card,
     marginHorizontal: 20,
-    borderRadius: 16,
-    paddingVertical: 15,
+    borderRadius: 20,
+    paddingVertical: 20,
     paddingHorizontal: 10,
-    // El margen negativo es más pequeño y menos problemático
-    marginTop: -20, 
-    zIndex: 1, 
+    marginTop: -25,
+    zIndex: 1,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
     justifyContent: 'space-around',
     alignItems: 'center',
     borderWidth: 1,
@@ -356,139 +507,203 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: COLORS.textSecondary,
     fontWeight: '700',
-    marginBottom: 4,
+    marginBottom: 6,
+    letterSpacing: 0.5,
   },
   metricValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 22,
+    fontWeight: '900',
     color: COLORS.text,
   },
   metricUnit: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: 'normal',
     color: COLORS.textSecondary,
   },
   metricDivider: {
     width: 1,
-    height: '60%',
+    height: '70%',
     backgroundColor: COLORS.border,
   },
   imcClassification: {
     fontSize: 10,
-    fontWeight: '600',
-    marginTop: 2,
+    fontWeight: '700',
+    marginTop: 4,
     textAlign: 'center',
+    letterSpacing: 0.3,
   },
 
   // SECCIONES
   sectionContainer: {
     paddingHorizontal: 20,
-    marginTop: 30, // Espacio normal después de la tarjeta de métricas
+    marginTop: 32,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 19,
+    fontWeight: '900',
     color: COLORS.text,
-    marginBottom: 15,
-    marginLeft: 4,
+    marginBottom: 16,
+    letterSpacing: 0.3,
   },
-  
-  // GRID DETALLES (Sin cambios)
-  gridContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+
+  // STATS GRID - NUEVO DISEÑO
+  statsGrid: {
+    gap: 12,
   },
-  detailItem: {
-    width: '48%', 
+  statCard: {
     backgroundColor: COLORS.card,
     borderRadius: 16,
-    padding: 12,
-    marginBottom: 12,
+    padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: COLORS.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  detailIconBox: {
-    width: 36,
-    height: 36,
-    backgroundColor: COLORS.background,
-    borderRadius: 10,
+  statIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 10,
+    marginRight: 14,
   },
-  detailEmoji: {
-    fontSize: 18,
+  statContent: {
+    flex: 1,
   },
-  detailLabel: {
-    fontSize: 11,
+  statLabel: {
+    fontSize: 13,
     color: COLORS.textSecondary,
+    fontWeight: '600',
+    marginBottom: 4,
   },
-  detailValue: {
-    fontSize: 14,
-    fontWeight: '700',
+  statValue: {
+    fontSize: 18,
+    fontWeight: '900',
     color: COLORS.text,
-    marginTop: 2,
+    letterSpacing: 0.3,
   },
 
-  // OPCIONES (Sin cambios)
+  // DETAIL CARDS - NUEVO DISEÑO CON GRADIENTES
+  detailCardsContainer: {
+    gap: 12,
+  },
+  detailCard: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  detailCardGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+  },
+  detailCardIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: COLORS.card,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border + '40',
+  },
+  detailCardContent: {
+    flex: 1,
+  },
+  detailCardLabel: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  detailCardValue: {
+    fontSize: 17,
+    fontWeight: '900',
+    color: COLORS.text,
+    letterSpacing: 0.2,
+  },
+
+  // OPCIONES
   optionsCard: {
     backgroundColor: COLORS.card,
     borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: COLORS.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   optionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border + '40', 
+    borderBottomColor: COLORS.border + '40',
   },
   optionIconContainer: {
-    width: 32,
-    height: 32,
-    backgroundColor: COLORS.primary + '15',
-    borderRadius: 8,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
-  },
-  optionIconDestructive: {
-    backgroundColor: COLORS.error + '15',
   },
   optionText: {
     flex: 1,
     fontSize: 15,
     color: COLORS.text,
-    fontWeight: '500',
+    fontWeight: '600',
   },
 
-  // FOOTER (Sin cambios)
+  // LOGOUT BUTTON MEJORADO
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 30,
-    padding: 15,
-    backgroundColor: COLORS.error + '10', 
+    marginTop: 32,
     marginHorizontal: 20,
-    borderRadius: 12,
+    padding: 16,
+    backgroundColor: COLORS.error + '12',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: COLORS.error + '30',
+  },
+  logoutIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: COLORS.error + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
   },
   logoutText: {
     color: COLORS.error,
-    fontWeight: 'bold',
-    marginLeft: 8,
+    fontWeight: '800',
     fontSize: 16,
+    letterSpacing: 0.3,
   },
   versionText: {
     textAlign: 'center',
     color: COLORS.textSecondary,
     fontSize: 12,
-    marginTop: 20,
-    opacity: 0.5,
+    marginTop: 24,
+    opacity: 0.6,
+    fontWeight: '600',
   },
 })

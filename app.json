@@ -30,7 +30,12 @@
       },
       "package": "com.fitflow.app",
       "versionCode": 1,
-      "permissions": [],
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ],
       "allowBackup": false,
       "navigationBar": {
         "visible": true,
@@ -58,6 +63,12 @@
       "eas": {
         "projectId": "d51de91a-f14d-40e9-a07d-bf12d9943800"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/d51de91a-f14d-40e9-a07d-bf12d9943800"
     }
   }
 }
