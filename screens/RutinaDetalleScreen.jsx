@@ -327,6 +327,21 @@ export default function RutinaDetalleScreen({ route, navigation }) {
     })
   }
 
+  const handleCompletarUltimoEjercicio = () => {
+    const ejercicioActual = ejercicios[ejercicioActivoIndex]
+    const nuevosCompletados = new Set([...ejerciciosCompletados, ejercicioActual.id])
+    setEjerciciosCompletados(nuevosCompletados)
+
+    Animated.timing(cardAnim, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true
+    }).start(() => {
+      setEjercicioActivoIndex(null)
+      setTimeout(() => handleFinalizarEntrenamiento(), 200)
+    })
+  }
+
   const handleCerrarCard = () => {
     Alert.alert(
       '¿Finalizar entrenamiento?',
@@ -676,6 +691,29 @@ export default function RutinaDetalleScreen({ route, navigation }) {
     return []
   }
 
+  const parsearEquipamiento = (equipos) => {
+    if (Array.isArray(equipos)) return equipos.filter(Boolean)
+    if (typeof equipos === 'string') {
+      return equipos
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean)
+    }
+    return []
+  }
+
+  const getIconoEquipo = (equipo) => {
+    const text = (equipo || '').toLowerCase()
+    if (text.includes('mancuer') || text.includes('dumb')) return 'https://img.icons8.com/color/96/dumbbell.png'
+    if (text.includes('barra') || text.includes('barbell')) return 'https://img.icons8.com/color/96/barbell.png'
+    if (text.includes('banda') || text.includes('resistencia')) return 'https://img.icons8.com/color/96/resistance-band.png'
+    if (text.includes('colchoneta') || text.includes('mat')) return 'https://img.icons8.com/color/96/yoga.png'
+    if (text.includes('banco')) return 'https://img.icons8.com/color/96/bench-press.png'
+    if (text.includes('kettlebell')) return 'https://img.icons8.com/color/96/kettlebell.png'
+    if (text.includes('cuerda')) return 'https://img.icons8.com/color/96/jump-rope.png'
+    return 'https://img.icons8.com/color/96/gym.png'
+  }
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -685,9 +723,17 @@ export default function RutinaDetalleScreen({ route, navigation }) {
   }
 
   const partesDelCuerpo = parsearParteTrabajada(rutina?.parte_trabajada || '')
+  const equiposNecesarios = parsearEquipamiento(
+    rutina?.tipo_equipo ||
+    rutina?.equipamiento ||
+    rutina?.equipo_detalle ||
+    rutina?.equipo_list ||
+    ''
+  )
   const ejercicioActual = ejercicioActivoIndex !== null ? ejercicios[ejercicioActivoIndex] : null
   const seriesActuales = ejercicioActual ? seriesRestantes[ejercicioActual.id] : 0
   const todosCompletados = ejercicioActivoIndex === null && entrenandoActivo
+  const tiempoEstimado = rutina?.duracion_minutos || rutina?.duracion || rutina?.tiempo || null
 
   return (
     <View style={styles.container}>
@@ -789,7 +835,11 @@ export default function RutinaDetalleScreen({ route, navigation }) {
                 <View style={styles.activoBotones}>
                   <TouchableOpacity
                     style={styles.activoBotonSiguiente}
-                    onPress={handleSiguienteEjercicio}
+                    onPress={
+                      seriesActuales === 1 && ejercicioActivoIndex === ejercicios.length - 1
+                        ? handleCompletarUltimoEjercicio
+                        : handleSiguienteEjercicio
+                    }
                   >
                     <LinearGradient
                       colors={['#4CAF50', '#45a049']}
@@ -800,7 +850,7 @@ export default function RutinaDetalleScreen({ route, navigation }) {
                           ? `Siguiente Serie (${seriesActuales - 1} restante${seriesActuales - 1 !== 1 ? 's' : ''})`
                           : ejercicioActivoIndex < ejercicios.length - 1 
                             ? 'Siguiente Ejercicio' 
-                            : 'Completar Último Ejercicio'}
+                            : 'Terminar Rutina'}
                       </Text>
                       <MaterialIcons name="arrow-forward" size={moderateScale(24)} color="#FFFFFF" />
                     </LinearGradient>
@@ -812,7 +862,11 @@ export default function RutinaDetalleScreen({ route, navigation }) {
         </Modal>
       )}
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={{ paddingBottom: verticalScale(140) }}
+        showsVerticalScrollIndicator={false}
+      >
 
         {/* HEADER CON IMAGEN */}
         <View style={styles.headerContainer}>
@@ -874,6 +928,13 @@ export default function RutinaDetalleScreen({ route, navigation }) {
             </View>
 
             <View style={styles.metaBadge}>
+              <MaterialIcons name="schedule" size={moderateScale(16)} color="#FFFFFF" />
+              <Text style={styles.metaText}>
+                {tiempoEstimado ? `${tiempoEstimado} min` : 'Tiempo no definido'}
+              </Text>
+            </View>
+
+            <View style={styles.metaBadge}>
               <MaterialIcons name="fitness-center" size={moderateScale(16)} color="#FFFFFF" />
               <Text style={styles.metaText}>
                 {rutina?.equipo ? 'Con equipo' : 'Sin equipo'}
@@ -888,9 +949,29 @@ export default function RutinaDetalleScreen({ route, navigation }) {
 
           <Text style={styles.descripcion}>{rutina?.descripcion}</Text>
 
+          <View style={styles.equipoSection}>
+            <Text style={styles.equipoTitle}>Equipo necesario</Text>
+            {equiposNecesarios.length > 0 ? (
+              <View style={styles.equipoList}>
+                {equiposNecesarios.map((item, index) => (
+                  <View key={index} style={styles.equipoItem}>
+                    <Image
+                      source={{ uri: getIconoEquipo(item) }}
+                      style={styles.equipoIcon}
+                      contentFit="cover"
+                    />
+                    <Text style={styles.parteTagText}>{item}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.equipoEmpty}>No requiere equipo especial</Text>
+            )}
+          </View>
+
           {partesDelCuerpo.length > 0 && (
             <View style={styles.partesSection}>
-              <Text style={styles.partesTitle}>💪 Partes trabajadas</Text>
+              <Text style={styles.partesTitle}>Partes trabajadas</Text>
               <View style={styles.partesTags}>
                 {partesDelCuerpo.map((parte, index) => (
                   <View key={index} style={styles.parteTag}>
@@ -952,39 +1033,45 @@ export default function RutinaDetalleScreen({ route, navigation }) {
           })}
         </View>
 
-        {/* BOTÓN PRINCIPAL */}
-        <View style={styles.bottomButtonContainer}>
-          {!entrenandoActivo ? (
-            <TouchableOpacity style={styles.startButton} onPress={handleIniciarEntrenamiento}>
-              <LinearGradient
-                colors={[COLORS.primary, '#8B7FE8']}
-                style={styles.startButtonGradient}
-              >
-                <MaterialIcons name="play-arrow" size={moderateScale(28)} color="#FFFFFF" />
-                <Text style={styles.startButtonText}>Iniciar Entrenamiento</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          ) : todosCompletados ? (
-            <TouchableOpacity
-              style={styles.startButton}
-              onPress={handleFinalizarEntrenamiento}
-            >
-              <LinearGradient
-                colors={['#4CAF50', '#45a049']}
-                style={styles.startButtonGradient}
-              >
-                <MaterialIcons name="check-circle" size={moderateScale(28)} color="#FFFFFF" />
-                <Text style={styles.startButtonText}>Finalizar Rutina</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.entrenamientoActivoBadge}>
-              <MaterialIcons name="fitness-center" size={moderateScale(24)} color={COLORS.primary} />
-              <Text style={styles.entrenamientoActivoText}>Entrenamiento en progreso...</Text>
-            </View>
-          )}
-        </View>
       </ScrollView>
+
+      {/* BOTÓN PRINCIPAL FIJO */}
+      <View
+        style={[
+          styles.bottomButtonContainer,
+          { paddingBottom: insets.bottom + verticalScale(16) }
+        ]}
+      >
+        {!entrenandoActivo ? (
+          <TouchableOpacity style={styles.startButton} onPress={handleIniciarEntrenamiento}>
+            <LinearGradient
+              colors={[COLORS.primary, '#8B7FE8']}
+              style={styles.startButtonGradient}
+            >
+              <MaterialIcons name="play-arrow" size={moderateScale(28)} color="#FFFFFF" />
+              <Text style={styles.startButtonText}>Iniciar Entrenamiento</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        ) : todosCompletados ? (
+          <TouchableOpacity
+            style={styles.startButton}
+            onPress={handleFinalizarEntrenamiento}
+          >
+            <LinearGradient
+              colors={['#4CAF50', '#45a049']}
+              style={styles.startButtonGradient}
+            >
+              <MaterialIcons name="check-circle" size={moderateScale(28)} color="#FFFFFF" />
+              <Text style={styles.startButtonText}>Finalizar Rutina</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.entrenamientoActivoBadge}>
+            <MaterialIcons name="fitness-center" size={moderateScale(24)} color={COLORS.primary} />
+            <Text style={styles.entrenamientoActivoText}>Entrenamiento en progreso...</Text>
+          </View>
+        )}
+      </View>
 
       {/* MODAL TIMER DESCANSO */}
       <Modal visible={mostrarTimer} transparent animationType="fade">
@@ -1533,7 +1620,8 @@ const styles = StyleSheet.create({
     fontSize: moderateScale(16),
     fontWeight: '900',
     textAlign: 'center',
-    lineHeight: moderateScale(32),
+    textAlignVertical: 'center',
+    lineHeight: moderateScale(24),
   },
   ejercicioNombre: {
     flex: 1,
@@ -1561,10 +1649,54 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
   },
 
+  // EQUIPO
+  equipoSection: {
+    marginTop: verticalScale(12),
+  },
+  equipoTitle: {
+    color: '#FFFFFF',
+    fontSize: moderateScale(16),
+    fontWeight: '700',
+    marginBottom: verticalScale(10),
+  },
+  equipoList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: scale(10),
+  },
+  equipoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: scale(10),
+    backgroundColor: COLORS.primary + '20',
+    borderRadius: moderateScale(14),
+    paddingVertical: verticalScale(8),
+    paddingHorizontal: scale(12),
+    borderWidth: 1,
+    borderColor: COLORS.primary + '35',
+  },
+  equipoIcon: {
+    width: moderateScale(28),
+    height: moderateScale(28),
+    borderRadius: moderateScale(14),
+    backgroundColor: '#0a0a0a',
+  },
+  equipoEmpty: {
+    color: COLORS.textSecondary,
+    fontSize: moderateScale(14),
+    opacity: 0.8,
+  },
+
   // BOTÓN PRINCIPAL
   bottomButtonContainer: {
-    padding: scale(24),
-    paddingBottom: verticalScale(40),
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    padding: scale(20),
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.08)',
   },
   startButton: {
     borderRadius: moderateScale(16),
