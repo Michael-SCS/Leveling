@@ -878,6 +878,13 @@ export default function RutinaDetalleScreen({ route, navigation }) {
             />
           )}
 
+          <LinearGradient
+            colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.85)']}
+            locations={[0, 1]}
+            style={styles.headerOverlay}
+            pointerEvents="none"
+          />
+
           <View style={styles.headerButtons}>
             <TouchableOpacity
               style={styles.iconButton}
@@ -1270,7 +1277,7 @@ export default function RutinaDetalleScreen({ route, navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: '#0f172a',
   },
   loadingContainer: {
     flex: 1,
@@ -1471,6 +1478,13 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
+  headerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
   headerButtons: {
     position: 'absolute',
     top: Platform.OS === 'ios' ? verticalScale(50) : verticalScale(40),
@@ -1487,7 +1501,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: '#ffffffff',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
@@ -1513,7 +1527,7 @@ const styles = StyleSheet.create({
 
   // SECCIÓN INFO
   infoSection: {
-    backgroundColor: '#000000',
+    backgroundColor: '#0f172a',
     padding: scale(24),
     paddingTop: verticalScale(28),
   },
@@ -1594,12 +1608,12 @@ const styles = StyleSheet.create({
     marginBottom: verticalScale(20),
   },
   ejercicioCard: {
-    backgroundColor: '#1a1a1a',
+    backgroundColor: '#111214',
     borderRadius: moderateScale(16),
     padding: scale(18),
     marginBottom: verticalScale(16),
     borderWidth: 2,
-    borderColor: '#2a2a2a',
+    borderColor: '#242424ff',
   },
   ejercicioCardCompletado: {
     borderColor: '#4CAF50',
@@ -1679,7 +1693,6 @@ const styles = StyleSheet.create({
     width: moderateScale(28),
     height: moderateScale(28),
     borderRadius: moderateScale(14),
-    backgroundColor: '#0a0a0a',
   },
   equipoEmpty: {
     color: COLORS.textSecondary,
